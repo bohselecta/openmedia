@@ -1,0 +1,96 @@
+You are building OpenMediaForge from scratch using this repository as the source of truth.
+
+Read in this order:
+1. AGENTS.md
+2. docs/00_EXECUTIVE_BRIEF.md
+3. docs/01_PRODUCT_SPEC.md
+4. docs/02_GUI_AND_DESIGN_SYSTEM.md
+5. docs/04_ARCHITECTURE.md
+6. docs/05_DATA_MODEL.md
+7. docs/06_PROVIDER_ADAPTER_SPEC.md
+8. docs/07_BYOK_KEYRAIL_SPEC.md
+9. docs/15_CURSOR_IMPLEMENTATION_TASKS.md
+10. docs/14_ACCEPTANCE_CRITERIA.md
+
+Do not copy or fork Open-Generative-AI, MuAPI UI, Higgsfield, Krea, Freepik, or any other existing product. This is a clean-room app.
+
+Build the MVP as a web app first:
+- Next.js App Router
+- TypeScript
+- Tailwind
+- shadcn/ui
+- Zustand
+- TanStack Query
+- Zod
+- IndexedDB/localForage for MVP persistence
+
+Core product:
+OpenMediaForge is a local-first, provider-neutral AI media command desk. It gives creators a beautiful studio for planning, generating, repairing, tracking, and proving AI media work. Compute is pluggable. BYOK begins as KeyRail, the trusted access layer inside the app.
+
+MVP must work fully with the Mock Provider and zero API keys.
+
+Implement:
+- App shell and premium GUI
+- Projects
+- Assets
+- Asset Map / Reference Budget
+- Provider registry
+- Mock provider
+- Model manifests
+- Job queue
+- Receipt writer
+- Image Studio end-to-end
+- Queue page
+- Receipts page
+- Providers page
+- Keys page with KeyRail metadata and dev vault warning
+- Verification script
+
+Routes:
+/
+/studio
+/studio/image
+/studio/video
+/studio/edit
+/studio/lipsync
+/studio/storyboard
+/studio/workflows
+/projects
+/assets
+/queue
+/receipts
+/providers
+/keys
+/settings
+
+Hard rules:
+- Do not hardcode MuAPI or any single provider gateway.
+- Do not add fake integrations.
+- Honest placeholders are allowed, but label them clearly.
+- Do not store raw keys in jobs or receipts.
+- UI must never display raw keys after save.
+- Provider adapters must use execution tickets, not raw keys.
+- Every completed generation must create a receipt.
+- Every result asset must be findable in Library/Assets.
+- No product claim may imply OpenMediaForge supplies hosted video compute in MVP.
+
+Verification:
+Add and run:
+- npm run typecheck
+- npm run lint
+- npm run build
+- npm run verify
+
+The verify script must check:
+- Provider registry loads.
+- Mock provider exists.
+- Sample model manifests load.
+- Mock image generation creates a job.
+- Mock job completes.
+- Receipt is created.
+- No string "muapi" exists in source files.
+- No hardcoded single-provider API base exists in production source.
+- Job and receipt types contain credential references only, not raw secret fields.
+
+Do not claim done until all checks pass and the app can run through this demo:
+Create project → add prompt → choose Mock Provider / mock-image-v1 → submit job → watch progress → see output card → open receipt → see provider/model/task/prompt/input/output/cost/network fields.

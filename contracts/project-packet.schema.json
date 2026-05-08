@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenMediaForge Project Packet",
+  "type": "object",
+  "required": [
+    "project",
+    "assets",
+    "jobs",
+    "receipts",
+    "assetMap"
+  ],
+  "properties": {
+    "project": {
+      "type": "object"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "assetMap": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "referenceSelectionsByJobId": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      }
+    },
+    "storyboardShots": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "promptNotes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "providersUsed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "credentialRefsMetadata": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "warning": {
+      "type": "string"
+    },
+    "appName": {
+      "type": "string"
+    },
+    "exportedAt": {
+      "type": "string"
+    },
+    "appVersion": {
+      "type": "string"
+    }
+  }
+}

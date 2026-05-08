@@ -1,0 +1,18 @@
+---
+description: OpenMediaForge product, architecture, security, and GUI rules
+alwaysApply: true
+---
+
+OpenMediaForge is a clean-room, local-first, provider-neutral AI media command desk.
+
+Do not copy or depend on MuAPI/Open-Generative-AI architecture.
+Do not hardcode a single hosted compute gateway.
+Every provider must be an adapter.
+Every model must be a manifest.
+Every generation must create a job and receipt.
+BYOK must flow through KeyRail credential refs and execution tickets.
+Raw keys must not be stored in job or receipt records.
+Mock provider must work without API keys.
+Provider placeholders must be honest and not pretend to run real compute.
+The GUI must be high-style, creator-grade, dark-first, cinematic, fast, and professional.
+Run verify before claiming done.

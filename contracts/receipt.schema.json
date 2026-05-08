@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenMediaForge Generation Receipt",
+  "type": "object",
+  "required": [
+    "id",
+    "jobId",
+    "providerId",
+    "modelId",
+    "task",
+    "settings",
+    "inputAssetIds",
+    "outputAssetIds",
+    "localOrRemote",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "projectId": {
+      "type": "string"
+    },
+    "providerId": {
+      "type": "string"
+    },
+    "credentialRef": {
+      "type": "string"
+    },
+    "modelId": {
+      "type": "string"
+    },
+    "task": {
+      "type": "string"
+    },
+    "prompt": {
+      "type": "string"
+    },
+    "negativePrompt": {
+      "type": "string"
+    },
+    "settings": {
+      "type": "object"
+    },
+    "seed": {
+      "type": "number"
+    },
+    "inputAssetIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "referenceSelections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetId", "stableHandle", "role", "priority"],
+        "properties": {
+          "assetId": { "type": "string" },
+          "stableHandle": { "type": "string" },
+          "role": { "type": "string" },
+          "priority": {
+            "enum": [
+              "must_preserve",
+              "guide_style",
+              "optional_inspiration"
+            ]
+          },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "outputAssetIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "estimatedCost": {
+      "type": "number"
+    },
+    "actualCost": {
+      "type": "number"
+    },
+    "localOrRemote": {
+      "enum": [
+        "local",
+        "remote",
+        "hybrid",
+        "mock"
+      ]
+    },
+    "networkDestinations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modelManifestVersion": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    }
+  },
+  "not": {
+    "anyOf": [
+      {
+        "required": [
+          "apiKey"
+        ]
+      },
+      {
+        "required": [
+          "secret"
+        ]
+      },
+      {
+        "required": [
+          "token"
+        ]
+      },
+      {
+        "required": [
+          "accessToken"
+        ]
+      },
+      {
+        "required": [
+          "password"
+        ]
+      }
+    ]
+  }
+}

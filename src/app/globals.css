@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #070708;
+  --panel: #101113;
+  --panel-elevated: #16171a;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f1ea;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+.radial-backdrop {
+  background-image: radial-gradient(
+      1200px 600px at 20% -10%,
+      rgba(125, 215, 255, 0.08),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 500px at 90% 0%,
+      rgba(200, 255, 95, 0.06),
+      transparent 50%
+    );
+}
