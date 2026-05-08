@@ -44,8 +44,8 @@ Optional: match the repo’s Node major via `.nvmrc` if present.
 ## Quick start
 
 ```bash
-git clone <repository-url>
-cd <repo-directory>
+git clone https://github.com/bohselecta/openmedia.git
+cd openmedia
 npm install
 npm run dev
 ```
