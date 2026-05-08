@@ -25,3 +25,7 @@ Each picked reference carries:
 ## Storyboard bridge
 
 Storyboard shots already store `referenceHandles`. **Send to Image Studio** writes a short-lived session bootstrap payload that restores prompt text, project binding, and resolves handles against Asset Map rows.
+
+## Phase 4
+
+Image Studio groups providers by **lane** (demo, local ComfyUI, BYO Generic HTTP, planned BYOK). Dynamic manifests resolve from saved provider configs while validation still honors Reference Budget rules per manifest.

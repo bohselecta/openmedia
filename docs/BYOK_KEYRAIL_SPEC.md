@@ -139,3 +139,7 @@ Only spin out KeyRail after:
 - audit/delegation features matter outside OpenMediaForge
 
 Until then, keep it inside the studio.
+
+## Phase 4
+
+Execution tickets for **local ComfyUI** may omit `credentialRef`; audit text and ticket `networkDestinations` still declare the local host routes. **Generic HTTP** tickets carry credential refs when auth modes require BYOK resolution at run time.

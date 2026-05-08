@@ -10,6 +10,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Layers,
+  Activity,
   Receipt,
   Settings,
   Sparkles,
@@ -24,6 +25,7 @@ const items: { href: string; label: string; icon: ElementType }[] = [
   { href: "/queue", label: "Queue", icon: Layers },
   { href: "/receipts", label: "Receipts", icon: Receipt },
   { href: "/providers", label: "Providers", icon: Boxes },
+  { href: "/providers/activity", label: "Provider activity", icon: Activity },
   { href: "/keys", label: "Keys", icon: KeyRound },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

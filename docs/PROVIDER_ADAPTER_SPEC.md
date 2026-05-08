@@ -152,3 +152,7 @@ Registry responsibilities:
 - raw key arguments in UI functions
 - storing provider secrets in job/receipt objects
 - fake live provider buttons
+
+## Phase 4
+
+**Generic HTTP** and **local ComfyUI** are first-class adapters with manifest ids `generic-http:{configId}` and `comfy:{templateId}`. Other vendor adapters remain honest placeholders until implemented. See `docs/GENERIC_HTTP_PROVIDER_SPEC.md` and `docs/COMFYUI_PROVIDER_SPEC.md`.

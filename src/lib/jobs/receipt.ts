@@ -25,7 +25,11 @@ export function writeReceiptFromJob(
     outputAssetIds: [...job.outputAssetIds],
     estimatedCost: job.estimatedCost,
     actualCost: job.actualCost,
-    localOrRemote: job.providerId === "mock" ? "mock" : "local",
+    localOrRemote:
+      job.providerId === "mock" ? "mock"
+      : job.providerId === "comfyui-local" ? "local"
+      : job.providerId === "generic-http" ? "remote"
+      : "local",
     networkDestinations: job.networkDestinations ?? [],
     modelManifestVersion: manifestVersion,
     createdAt: now,

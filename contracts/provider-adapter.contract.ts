@@ -86,6 +86,101 @@ export type ModelManifest = {
     maxReferences: number;
     requiresPrimaryReference?: boolean;
   };
+  /** Declared execution posture for UI and receipts */
+  localOrRemote?: "local" | "remote" | "hybrid";
+};
+
+/** Stored provider adapter configuration — never includes raw secrets */
+export type ProviderAuthMode =
+  | "none"
+  | "byok"
+  | "header"
+  | "bearer"
+  | "custom";
+
+export type GenericHttpOutputType =
+  | "imageUrl"
+  | "imageBase64"
+  | "videoUrl"
+  | "jsonOnly";
+
+export type GenericHttpPollingMode = "none" | "get" | "post";
+
+export type GenericHttpResponseMapping = {
+  jobIdPath?: string;
+  outputUrlPath?: string;
+  outputBase64Path?: string;
+  statusPath?: string;
+  errorPath?: string;
+};
+
+export type GenericHttpAdapterSettings = {
+  method: "GET" | "POST" | "PUT";
+  task: MediaTask;
+  /** JSON string with {{prompt}} style placeholders */
+  requestTemplateJson: string;
+  responseMapping: GenericHttpResponseMapping;
+  polling: {
+    mode: GenericHttpPollingMode;
+    /** URL template; may include {{jobId}} */
+    pollUrlTemplate?: string;
+    intervalMs: number;
+    maxAttempts: number;
+  };
+  outputType: GenericHttpOutputType;
+  /** Optional override; defaults from task */
+  referenceBudget?: ModelManifest["referenceBudget"];
+  /** When authMode is custom, header name to populate from credential */
+  customAuthHeaderName?: string;
+};
+
+export type ComfyWorkflowRequiredInputs = "prompt" | "negativePrompt" | "seed" | "width" | "height" | "image";
+
+export type ComfyWorkflowTemplate = {
+  id: string;
+  label: string;
+  task: MediaTask;
+  description?: string;
+  /** API-format workflow JSON string (object serialized) */
+  workflowJson: string;
+  requiredInputs: ComfyWorkflowRequiredInputs[];
+  outputNodeIds: string[];
+  /** Dot paths inside workflow JSON, e.g. "12.inputs.text" */
+  promptPath?: string;
+  negativePromptPath?: string;
+  seedPath?: string;
+  widthPath?: string;
+  heightPath?: string;
+  /** LoadImage node image filename input path */
+  imageInputPath?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ComfyAdapterSettings = {
+  timeoutMs: number;
+  pollIntervalMs: number;
+  maxPollAttempts: number;
+  templates: ComfyWorkflowTemplate[];
+};
+
+export type ProviderConfig = {
+  id: string;
+  providerId: "generic-http" | "comfyui-local" | string;
+  label: string;
+  kind: ProviderKind;
+  baseUrl?: string;
+  authMode: ProviderAuthMode;
+  credentialRef?: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastTestAt?: string;
+  lastTestStatus?: "ok" | "failed";
+  lastTestMessage?: string;
+  /** Provider-specific settings (no secrets) */
+  genericHttp?: GenericHttpAdapterSettings;
+  comfy?: ComfyAdapterSettings;
 };
 
 export type CredentialRef = {

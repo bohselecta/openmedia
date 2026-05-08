@@ -27,7 +27,9 @@ import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -37,14 +39,28 @@ import { ReferenceBudgetPanel } from "@/components/reference/ReferenceBudgetPane
 import type { AssetRole } from "@/lib/assetMap/assetMapTypes";
 import { suggestedStableHandle } from "@/lib/assetMap/handles";
 import { useAssetStore } from "@/lib/assets/assetStore";
+import { useCredentialStore } from "@/lib/keyrail/credentialStore";
 import { submitStudioGeneration } from "@/lib/jobs/jobRunner";
 import { useJobStore } from "@/lib/jobs/jobStore";
 import {
   SAMPLE_MANIFESTS,
   getManifestById,
 } from "@/lib/models/sampleManifests";
+import { computeNetworkDestinations } from "@/lib/providers/networkDestinations";
+import { parseGenericModelId } from "@/lib/providers/genericHttpProvider";
+import { useProviderConfigStore } from "@/lib/providers/providerConfigStore";
 import { loadProviderRegistry } from "@/lib/providers/registry";
-import type { MediaTask, ReferenceSelection } from "@/lib/providers/types";
+import { PROVIDER_CATALOG } from "@/lib/providers/uiCatalog";
+import {
+  modelIdForComfyTemplate,
+  validateComfyTemplate,
+} from "@/lib/providers/comfyWorkflowTemplates";
+import type {
+  GenerationRequest,
+  MediaTask,
+  ModelManifest,
+  ReferenceSelection,
+} from "@/lib/providers/types";
 import {
   mapPriorityFromSelection,
   selectionPriorityFromMap,
@@ -72,6 +88,11 @@ export function ImageStudio() {
   const assets = useAssetStore((s) => s.assets);
   const assetMap = useAssetStore((s) => s.assetMap);
   const upsertMapEntry = useAssetStore((s) => s.upsertMapEntry);
+  const providerConfigs = useProviderConfigStore((s) => s.configs);
+  const activeProviderConfigs = useProviderConfigStore(
+    (s) => s.activeByProviderId,
+  );
+  const credentials = useCredentialStore((s) => s.credentials);
 
   const mapForProject = useMemo(
     () =>
@@ -79,10 +100,27 @@ export function ImageStudio() {
     [assetMap, projectId],
   );
 
-  const providers = useMemo(() => loadProviderRegistry(), []);
+  const studioProviders = useMemo(
+    () =>
+      loadProviderRegistry().filter((p) =>
+        ["mock", "generic-http", "comfyui-local"].includes(p.id),
+      ),
+    [],
+  );
+  const plannedProviders = useMemo(
+    () =>
+      PROVIDER_CATALOG.filter((c) =>
+        ["replicate", "fal", "runpod", "modal", "openai", "google"].includes(
+          c.id,
+        ),
+      ),
+    [],
+  );
+
   const [providerId, setProviderId] = useState("mock");
   const [studioTask, setStudioTask] = useState<MediaTask>("text-to-image");
   const [modelId, setModelId] = useState("mock-image-v1");
+  const [genericCredentialRef, setGenericCredentialRef] = useState("");
   const [prompt, setPrompt] = useState(
     "Cinematic graphite portrait, soft rim light, premium lens character.",
   );
@@ -95,9 +133,80 @@ export function ImageStudio() {
   const activeProject = projects.find((p) => p.id === projectId);
   const manifest = getManifestById(modelId);
 
-  const models = SAMPLE_MANIFESTS.filter(
-    (m) => m.providerId === providerId && m.task === studioTask,
+  const genericModels = useMemo((): ModelManifest[] => {
+    return providerConfigs
+      .filter(
+        (c) =>
+          c.providerId === "generic-http" &&
+          c.enabled &&
+          c.genericHttp?.task === studioTask,
+      )
+      .map((c) => getManifestById(`generic-http:${c.id}`))
+      .filter((m): m is ModelManifest => Boolean(m));
+  }, [providerConfigs, studioTask]);
+
+  const comfyModels = useMemo((): ModelManifest[] => {
+    const cfg = providerConfigs.find(
+      (c) => c.id === activeProviderConfigs["comfyui-local"],
+    );
+    if (!cfg?.comfy || !cfg.enabled) return [];
+    return cfg.comfy.templates
+      .filter((t) => t.task === studioTask && validateComfyTemplate(t).ok)
+      .map((t) => getManifestById(modelIdForComfyTemplate(t.id)))
+      .filter((m): m is ModelManifest => Boolean(m));
+  }, [providerConfigs, activeProviderConfigs, studioTask]);
+
+  const models = useMemo(() => {
+    if (providerId === "mock") {
+      return SAMPLE_MANIFESTS.filter(
+        (m) => m.providerId === "mock" && m.task === studioTask,
+      );
+    }
+    if (providerId === "generic-http") {
+      return genericModels;
+    }
+    if (providerId === "comfyui-local") {
+      return comfyModels;
+    }
+    return [];
+  }, [providerId, studioTask, genericModels, comfyModels]);
+
+  const hasComfyProfile = Boolean(
+    providerConfigs.find((c) => c.id === activeProviderConfigs["comfyui-local"]),
   );
+  const genericHttpEnabled = genericModels.length > 0;
+  const comfyRunnable = comfyModels.length > 0;
+
+  const networkPreview = useMemo(() => {
+    if (providerId !== "generic-http" && providerId !== "comfyui-local") {
+      return [];
+    }
+    const req: GenerationRequest = {
+      projectId: projectId ?? undefined,
+      providerId,
+      modelId,
+      task: studioTask,
+      prompt,
+      settings: { width: 512, height: 512 },
+      inputAssetIds: selections.map((s) => s.assetId),
+      referenceSelections: selections,
+      outputPolicy: "local-only",
+    };
+    return computeNetworkDestinations(req);
+  }, [
+    providerId,
+    modelId,
+    studioTask,
+    prompt,
+    projectId,
+    selections,
+  ]);
+
+  const selectedGenericCfg = useMemo(() => {
+    const mid = parseGenericModelId(modelId);
+    if (!mid) return undefined;
+    return providerConfigs.find((c) => c.id === mid);
+  }, [modelId, providerConfigs]);
 
   const activeJob = activeJobId
     ? jobs.find((j) => j.id === activeJobId)
@@ -293,20 +402,33 @@ export function ImageStudio() {
       modelId,
       task: studioTask,
       prompt,
+      credentialRef:
+        providerId === "generic-http" && genericCredentialRef ?
+          genericCredentialRef
+        : undefined,
       inputAssetIds: inputIds,
       referenceSelections: selections,
       settings: {
         studio: "image",
         studioTask,
+        ...(providerId === "generic-http" && genericCredentialRef ?
+          { credentialRef: genericCredentialRef }
+        : {}),
       },
     });
     setActiveJobId(jobId);
   }
 
   const keyMode =
-    providerId === "mock"
-      ? "none"
-      : "browser-dev";
+    providerId === "mock" || providerId === "comfyui-local" ? "none"
+    : providerId === "generic-http" &&
+        (selectedGenericCfg?.authMode === "bearer" ||
+          selectedGenericCfg?.authMode === "header" ||
+          selectedGenericCfg?.authMode === "custom" ||
+          selectedGenericCfg?.authMode === "byok") ?
+      "browser-dev"
+    : providerId === "generic-http" ? "none"
+    : "browser-dev";
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
@@ -327,8 +449,9 @@ export function ImageStudio() {
               )}
             </div>
             <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-              Mock lane proves queues, assets, and receipts with zero keys.
-              Switch projects from the top bar to steer outputs.
+              Mock proves receipts with zero keys. ComfyUI runs on your machine.
+              Generic HTTP sends payloads to endpoints you configure — inspect the
+              network preview before submit.
             </p>
           </div>
           {!activeProject && (
@@ -357,14 +480,125 @@ export function ImageStudio() {
                     <SelectValue placeholder="Provider" />
                   </SelectTrigger>
                   <SelectContent>
-                    {providers.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      <SelectLabel>Demo lane</SelectLabel>
+                      {studioProviders
+                        .filter((p) => p.id === "mock")
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>Local compute</SelectLabel>
+                      {studioProviders
+                        .filter((p) => p.id === "comfyui-local")
+                        .map((p) => (
+                          <SelectItem
+                            key={p.id}
+                            value={p.id}
+                            disabled={!comfyRunnable}
+                            textValue={p.name}
+                          >
+                            {p.name}
+                            {!comfyRunnable ?
+                              " · add runnable template"
+                            : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>BYO endpoint</SelectLabel>
+                      {studioProviders
+                        .filter((p) => p.id === "generic-http")
+                        .map((p) => (
+                          <SelectItem
+                            key={p.id}
+                            value={p.id}
+                            disabled={!genericHttpEnabled}
+                            textValue={p.name}
+                          >
+                            {p.name}
+                            {!genericHttpEnabled ?
+                              " · configure in Providers"
+                            : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>Planned BYOK (disabled)</SelectLabel>
+                      {plannedProviders.map((p) => (
+                        <SelectItem key={p.id} value={p.id} disabled>
+                          {p.name} · placeholder
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
+              {providerId === "generic-http" && (
+                <div className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-3 text-xs text-warning">
+                  <div className="font-semibold uppercase tracking-wide">
+                    Advanced BYO endpoint
+                  </div>
+                  <p className="mt-2 text-warning/95">
+                    Generic HTTP sends request data to your configured URL. You are
+                    responsible for the remote system and compliance.
+                  </p>
+                  {networkPreview.length > 0 && (
+                    <p className="mt-2 font-mono text-[10px] text-warning/90">
+                      {networkPreview.join(" · ")}
+                    </p>
+                  )}
+                </div>
+              )}
+              {providerId === "comfyui-local" && comfyRunnable && (
+                <div className="rounded-xl border border-line bg-panel px-3 py-2 text-xs text-ink-muted">
+                  <Badge variant="lime" className="mb-2 font-normal normal-case">
+                    Local lane
+                  </Badge>
+                  <p>
+                    Runs on your ComfyUI server — manifests map to imported workflow
+                    templates.
+                  </p>
+                </div>
+              )}
+              {providerId === "comfyui-local" && !comfyRunnable && hasComfyProfile && (
+                <p className="text-xs text-ink-muted">
+                  Connected profile has no validated template for this task — open
+                  Providers → ComfyUI setup.
+                </p>
+              )}
+              {providerId === "generic-http" &&
+                (selectedGenericCfg?.authMode === "bearer" ||
+                  selectedGenericCfg?.authMode === "header" ||
+                  selectedGenericCfg?.authMode === "custom" ||
+                  selectedGenericCfg?.authMode === "byok") && (
+                  <div className="grid gap-2">
+                    <Label>KeyRail credential ref</Label>
+                    <Select
+                      value={genericCredentialRef || "__none__"}
+                      onValueChange={(v) =>
+                        setGenericCredentialRef(v === "__none__" ? "" : v)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Credential" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {credentials
+                          .filter((c) => c.providerId === "generic-http")
+                          .map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.label} · {c.id.slice(0, 8)}…
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               <div className="grid gap-2">
                 <Label>Studio task</Label>
                 <Select
@@ -666,7 +900,8 @@ export function ImageStudio() {
                     Provider trust
                   </div>
                   <div className="text-sm font-semibold">
-                    {providers.find((p) => p.id === providerId)?.name}
+                    {studioProviders.find((p) => p.id === providerId)?.name ??
+                      PROVIDER_CATALOG.find((c) => c.id === providerId)?.name}
                   </div>
                 </div>
               </div>

@@ -181,3 +181,7 @@ scripts/
 ```
 
 Do not overbuild backend routes in MVP. Keep the first version client-local except for future provider adapter stubs.
+
+## Phase 4 — Provider foundations
+
+IndexedDB-backed **provider config** and **provider run log** stores join existing job/receipt pipelines. **Generic HTTP** and **ComfyUI** adapters are real client-side executors; other vendor cards remain placeholders. Execution tickets carry **networkDestinations** derived from adapter previews (hosts/routes, no secrets).

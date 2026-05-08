@@ -24,3 +24,7 @@ JSON exports include:
 `src/lib/export/projectPacket.ts` exposes `buildProjectPacket` and `projectPacketToJson`. The project workspace **Export project packet** button downloads `openmediaforge-project-<id>.json`.
 
 The receipts page can export the entire ledger as JSON for cross-project audits.
+
+## Phase 4
+
+Packets continue to carry **credential metadata** (refs, scopes, storage mode) rather than secrets. Jobs include **networkDestinations** when adapters declare outbound hosts.

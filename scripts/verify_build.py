@@ -25,6 +25,9 @@ REQUIRED = [
     "docs/SECURITY.md",
     "docs/PROJECT_PACKET_SPEC.md",
     "docs/REFERENCE_EXECUTION_SPEC.md",
+    "docs/GENERIC_HTTP_PROVIDER_SPEC.md",
+    "docs/COMFYUI_PROVIDER_SPEC.md",
+    "docs/PROVIDER_ACTIVITY_LOG_SPEC.md",
 ]
 
 REQUIRED_ROUTE_FILES = [
@@ -42,6 +45,7 @@ REQUIRED_ROUTE_FILES = [
     "src/app/queue/page.tsx",
     "src/app/receipts/page.tsx",
     "src/app/providers/page.tsx",
+    "src/app/providers/activity/page.tsx",
     "src/app/keys/page.tsx",
     "src/app/settings/page.tsx",
 ]
@@ -76,6 +80,13 @@ EXCLUDE_DIRS = {"node_modules", ".next", "dist", "build", ".git"}
 IMPLEMENTATION_FILES = [
     "src/lib/providers/registry.ts",
     "src/lib/providers/mockProvider.ts",
+    "src/lib/providers/genericHttpProvider.ts",
+    "src/lib/providers/comfyProvider.ts",
+    "src/lib/providers/comfyClient.ts",
+    "src/lib/providers/providerConfigStore.ts",
+    "src/lib/providers/providerRunLog.ts",
+    "src/lib/providers/providerConfig.ts",
+    "src/lib/models/dynamicManifests.ts",
     "src/lib/models/sampleManifests.ts",
     "src/lib/jobs/jobRunner.ts",
     "src/lib/jobs/receipt.ts",
@@ -226,6 +237,39 @@ def check_reference_execution_contracts():
     return ok("reference execution + packet modules present")
 
 
+def check_provider_phase4():
+    need = [
+        "contracts/provider-adapter.contract.ts",
+        "src/lib/providers/providerConfig.ts",
+        "src/lib/providers/providerConfigStore.ts",
+        "src/lib/providers/providerRunLog.ts",
+        "src/lib/providers/genericHttpProvider.ts",
+        "src/lib/providers/comfyProvider.ts",
+        "src/lib/providers/comfyClient.ts",
+        "src/lib/models/dynamicManifests.ts",
+    ]
+    for rel in need:
+        if not (ROOT / rel).exists():
+            return fail(f"Phase 4 file missing: {rel}")
+    gh = (ROOT / "src/lib/providers/genericHttpProvider.ts").read_text(errors="ignore")
+    if re.search(r"https://api\.[a-z0-9.-]+", gh, re.IGNORECASE):
+        return fail("genericHttpProvider contains hardcoded https://api.* base")
+    cc = (ROOT / "src/lib/providers/comfyClient.ts").read_text(errors="ignore")
+    for token in ["/system_stats", "/object_info", "/prompt", "/history", "/view"]:
+        if token not in cc:
+            return fail(f"comfyClient missing route token {token}")
+    cp = (ROOT / "src/lib/providers/comfyProvider.ts").read_text(errors="ignore")
+    if "No runnable Comfy template" not in cp:
+        return fail("comfyProvider should gate runnability on validated templates")
+    prl = (ROOT / "src/lib/providers/providerRunLog.ts").read_text(errors="ignore")
+    if "Authorization" in prl:
+        return fail("provider run log must not reference Authorization headers")
+    rc = (ROOT / "src/lib/jobs/receipt.ts").read_text(errors="ignore")
+    if "apiKey" in rc or "bearerToken" in rc:
+        return fail("receipt writer must not introduce raw secret fields")
+    return ok("provider foundations (phase 4) markers present")
+
+
 def main():
     checks = [
         check_required_docs(),
@@ -233,6 +277,7 @@ def main():
         check_required_routes(),
         check_domain_types_and_contracts(),
         check_reference_execution_contracts(),
+        check_provider_phase4(),
         check_forbidden_strings(),
         check_hardcoded_api_bases(),
         check_secret_fields_in_contracts(),

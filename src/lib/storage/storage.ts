@@ -11,6 +11,8 @@ export const storageReceipts = createOmfStore("receipts");
 export const storageCredentials = createOmfStore("credentials");
 export const storageAudit = createOmfStore("audit");
 export const storageWorkspace = createOmfStore("workspace");
+export const storageProviderConfigs = createOmfStore("provider_configs");
+export const storageProviderRunLog = createOmfStore("provider_run_log");
 
 export async function clearAllOmfStores(): Promise<void> {
   await Promise.all([
@@ -22,5 +24,7 @@ export async function clearAllOmfStores(): Promise<void> {
     storageCredentials.clear(),
     storageAudit.clear(),
     storageWorkspace.clear(),
+    storageProviderConfigs.clear(),
+    storageProviderRunLog.clear(),
   ]);
 }

@@ -201,3 +201,7 @@ type MediaTask =
 - password
 
 They may only contain `credentialRef`.
+
+## Phase 4
+
+**ProviderConfig** records (persisted separately from jobs) describe adapter settings without raw secrets. Jobs/receipts continue to forbid raw key fields; **networkDestinations** strings describe hosts/routes for transparency.

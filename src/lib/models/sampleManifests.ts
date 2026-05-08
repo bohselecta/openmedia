@@ -1,4 +1,5 @@
 import type { ModelManifest } from "@/lib/models/manifestTypes";
+import { resolveDynamicManifest } from "@/lib/models/dynamicManifests";
 
 export const SAMPLE_MANIFESTS: ModelManifest[] = [
   {
@@ -71,5 +72,5 @@ export const SAMPLE_MANIFESTS: ModelManifest[] = [
 ];
 
 export function getManifestById(id: string): ModelManifest | undefined {
-  return SAMPLE_MANIFESTS.find((m) => m.id === id);
+  return SAMPLE_MANIFESTS.find((m) => m.id === id) ?? resolveDynamicManifest(id);
 }

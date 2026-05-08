@@ -28,11 +28,11 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     id: "generic-http",
     name: "Generic HTTP",
     kind: "remote",
-    lane: "planned-http",
+    lane: "byok",
     capabilities: ["custom endpoints", "manifest-driven tasks"],
     authMode: "configurable",
     honesty:
-      "Adapter shell exists — configure base URL + auth profile when ready.",
+      "Phase 4 BYO lane — user-defined base URL, templates, and polling. No bundled remote vendor.",
   },
   {
     id: "comfyui-local",
@@ -42,7 +42,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     capabilities: ["local graphs", "LAN queues"],
     authMode: "local-daemon",
     honesty:
-      "Placeholder — wire your local Comfy instance via adapter when installed.",
+      "Local ComfyUI adapter — uses your /prompt, /history, /view routes with imported workflow templates.",
   },
   {
     id: "stable-diffusion-cpp",

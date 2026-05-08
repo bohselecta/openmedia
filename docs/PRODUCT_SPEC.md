@@ -155,3 +155,11 @@ Needs:
 A first-time user can complete the mock demo flow in under 5 minutes and understand the product promise without external explanation.
 
 A power user can inspect the code and see exactly where providers, keys, jobs, receipts, and manifests plug in.
+
+## Phase 4 — Provider foundations (shipped)
+
+- **Mock** remains the demo lane.
+- **Generic HTTP** is an advanced BYO-endpoint lane with configurable templates, polling, and KeyRail credential refs only in persisted records.
+- **Local ComfyUI** connects to a user-run server, imports API workflow templates, validates them, and executes via `/prompt` + `/history` polling.
+- **Provider activity log** surfaces network attempts without raw secrets.
+- **No OpenMediaForge hosted compute** is introduced in this phase.

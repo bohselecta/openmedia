@@ -9,6 +9,14 @@ import type { GenerationJob } from "@/lib/jobs/jobTypes";
 import { useJobStore } from "@/lib/jobs/jobStore";
 import { getManifestById } from "@/lib/models/sampleManifests";
 import { getProviderById } from "@/lib/providers/registry";
+import { computeNetworkDestinations } from "@/lib/providers/networkDestinations";
+import { useProviderConfigStore } from "@/lib/providers/providerConfigStore";
+import {
+  hostOnlyFromUrl,
+  inferRunLane,
+  useProviderRunLogStore,
+} from "@/lib/providers/providerRunLog";
+import { parseGenericModelId } from "@/lib/providers/genericHttpProvider";
 import type {
   GenerationRequest,
   ReferenceSelection,
@@ -88,12 +96,18 @@ export async function runJob(jobId: string): Promise<void> {
     return;
   }
 
-  const cred = job.credentialRef
+  const effectiveCredentialRef =
+    job.credentialRef ??
+    (job.providerId === "generic-http" ?
+      (job.settings?.credentialRef as string | undefined)
+    : undefined);
+
+  const cred = effectiveCredentialRef
     ? useCredentialStore
         .getState()
-        .credentials.find((c) => c.id === job.credentialRef)
+        .credentials.find((c) => c.id === effectiveCredentialRef)
     : undefined;
-  if (job.credentialRef && !cred) {
+  if (effectiveCredentialRef && !cred) {
     patchJob(jobId, {
       status: "failed",
       error: "Credential reference not found in KeyRail.",
@@ -101,7 +115,7 @@ export async function runJob(jobId: string): Promise<void> {
     });
     return;
   }
-  if (job.credentialRef && cred && !credentialAllowsTask(cred, job.task)) {
+  if (effectiveCredentialRef && cred && !credentialAllowsTask(cred, job.task)) {
     patchJob(jobId, {
       status: "failed",
       error: "Credential scope does not allow this task.",
@@ -117,7 +131,12 @@ export async function runJob(jobId: string): Promise<void> {
     task: job.task,
     prompt: job.prompt,
     negativePrompt: job.negativePrompt,
-    settings: job.settings,
+    settings: {
+      ...job.settings,
+      ...(effectiveCredentialRef && job.providerId === "generic-http" ?
+        { credentialRef: effectiveCredentialRef }
+      : {}),
+    },
     inputAssetIds: job.inputAssetIds,
     referenceSelections: job.referenceSelections ?? [],
     targetProfile:
@@ -136,12 +155,47 @@ export async function runJob(jobId: string): Promise<void> {
     return;
   }
 
+  const networkDestinations = computeNetworkDestinations(request);
+  const providerConfigId =
+    parseGenericModelId(job.modelId) ??
+    (job.providerId === "comfyui-local" ?
+      useProviderConfigStore.getState().getActiveConfigForProvider("comfyui-local")?.id
+    : undefined);
+  const cfgRow =
+    job.providerId === "generic-http" && providerConfigId ?
+      useProviderConfigStore.getState().getProviderConfig(providerConfigId)
+    : job.providerId === "comfyui-local" ?
+      useProviderConfigStore.getState().getActiveConfigForProvider("comfyui-local")
+    : undefined;
+  const endpointHost =
+    cfgRow?.baseUrl ? hostOnlyFromUrl(cfgRow.baseUrl) : undefined;
+
+  const t0 = Date.now();
+  useProviderRunLogStore.getState().append({
+    providerId: job.providerId,
+    providerConfigId,
+    projectId: job.projectId,
+    jobId,
+    task: job.task,
+    lane: inferRunLane({
+      providerId: job.providerId,
+      authMode: cfgRow?.authMode ?? "none",
+      endpointHost,
+      credentialRef: effectiveCredentialRef,
+    }),
+    endpointHost,
+    method: job.providerId === "generic-http" ? "POST" : "MULTI",
+    status: "started",
+    credentialRef: effectiveCredentialRef,
+    networkDestination: networkDestinations[0],
+  });
+
   const ticket = await omfKeyRail.createExecutionTicket({
     request,
-    credentialRef: job.credentialRef,
+    credentialRef: effectiveCredentialRef,
     estimatedCost: getManifestById(job.modelId)?.estimatedCost?.amount,
     approval: "auto",
-    networkDestinations: [],
+    networkDestinations,
   });
 
   await omfKeyRail.logUse({
@@ -161,6 +215,7 @@ export async function runJob(jobId: string): Promise<void> {
     status: "running",
     progress: 6,
     updatedAt: new Date().toISOString(),
+    networkDestinations: ticket.networkDestinations,
     settings: {
       ...baseAfterTicket.settings,
       executionTicketId: ticket.id,
@@ -171,13 +226,42 @@ export async function runJob(jobId: string): Promise<void> {
   try {
     handle = await provider.submit(request, ticket);
   } catch (e) {
+    const msg = e instanceof Error ? e.message : "Submit failed.";
+    useProviderRunLogStore.getState().append({
+      providerId: job.providerId,
+      providerConfigId,
+      projectId: job.projectId,
+      jobId,
+      task: job.task,
+      lane: inferRunLane({
+        providerId: job.providerId,
+        authMode: cfgRow?.authMode ?? "none",
+        endpointHost,
+        credentialRef: effectiveCredentialRef,
+      }),
+      endpointHost,
+      method: "POST",
+      status: "failed",
+      durationMs: Date.now() - t0,
+      errorMessage: msg,
+      credentialRef: effectiveCredentialRef,
+      networkDestination: networkDestinations[0],
+    });
     patchJob(jobId, {
       status: "failed",
-      error: e instanceof Error ? e.message : "Submit failed.",
+      error: msg,
       updatedAt: new Date().toISOString(),
+      networkDestinations: ticket.networkDestinations,
     });
     return;
   }
+
+  const pollMs =
+    job.providerId === "comfyui-local" ?
+      (useProviderConfigStore
+        .getState()
+        .getActiveConfigForProvider("comfyui-local")?.comfy?.pollIntervalMs ?? 800)
+    : 280;
 
   let status = await provider.poll(handle.providerJobId, ticket);
   while (status.status === "queued" || status.status === "running") {
@@ -186,17 +270,39 @@ export async function runJob(jobId: string): Promise<void> {
       status: status.status === "queued" ? "queued" : "running",
       progress: Math.max(current?.progress ?? 0, status.progress),
       updatedAt: new Date().toISOString(),
+      networkDestinations: ticket.networkDestinations,
     });
-    await sleep(280);
+    await sleep(pollMs);
     status = await provider.poll(handle.providerJobId, ticket);
   }
 
   if (status.status === "failed" || status.status === "canceled") {
+    useProviderRunLogStore.getState().append({
+      providerId: job.providerId,
+      providerConfigId,
+      projectId: job.projectId,
+      jobId,
+      task: job.task,
+      lane: inferRunLane({
+        providerId: job.providerId,
+        authMode: cfgRow?.authMode ?? "none",
+        endpointHost,
+        credentialRef: effectiveCredentialRef,
+      }),
+      endpointHost,
+      method: "POST",
+      status: status.status === "canceled" ? "canceled" : "failed",
+      durationMs: Date.now() - t0,
+      errorMessage: status.error,
+      credentialRef: effectiveCredentialRef,
+      networkDestination: networkDestinations[0],
+    });
     patchJob(jobId, {
       status: status.status === "canceled" ? "canceled" : "failed",
       progress: status.progress,
       error: status.error ?? "Job failed.",
       updatedAt: new Date().toISOString(),
+      networkDestinations: ticket.networkDestinations,
     });
     return;
   }
@@ -205,6 +311,8 @@ export async function runJob(jobId: string): Promise<void> {
   const outputIds: string[] = [];
   const now = new Date().toISOString();
   for (const o of outputs) {
+    const remoteHttp =
+      o.uri.startsWith("http://") || o.uri.startsWith("https://");
     const asset: Asset = {
       id: newId(),
       projectId: job.projectId,
@@ -212,7 +320,7 @@ export async function runJob(jobId: string): Promise<void> {
       role: "output",
       label: o.label ?? "Generated output",
       uri: o.uri,
-      local: true,
+      local: !remoteHttp,
       mimeType: o.mimeType,
       rightsStatus: "unknown",
       createdAt: now,
@@ -225,6 +333,26 @@ export async function runJob(jobId: string): Promise<void> {
     }
   }
 
+  useProviderRunLogStore.getState().append({
+    providerId: job.providerId,
+    providerConfigId,
+    projectId: job.projectId,
+    jobId,
+    task: job.task,
+    lane: inferRunLane({
+      providerId: job.providerId,
+      authMode: cfgRow?.authMode ?? "none",
+      endpointHost,
+      credentialRef: effectiveCredentialRef,
+    }),
+    endpointHost,
+    method: "POST",
+    status: "succeeded",
+    durationMs: Date.now() - t0,
+    credentialRef: effectiveCredentialRef,
+    networkDestination: networkDestinations[0],
+  });
+
   patchJob(jobId, {
     status: "completed",
     progress: 100,
@@ -232,7 +360,7 @@ export async function runJob(jobId: string): Promise<void> {
     actualCost: getManifestById(job.modelId)?.estimatedCost?.amount ?? 0,
     completedAt: now,
     updatedAt: now,
-    networkDestinations: [],
+    networkDestinations: ticket.networkDestinations,
   });
 
   const completed = useJobStore.getState().jobs.find((j) => j.id === jobId)!;

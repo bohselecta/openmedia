@@ -82,3 +82,7 @@ Future page or panel:
 - logging raw keys
 - putting secrets in receipts
 - hidden remote analytics for job data
+
+## Phase 4
+
+The **provider activity log** records execution attempts with host-level destinations only — never full Authorization headers. See `docs/PROVIDER_ACTIVITY_LOG_SPEC.md`.

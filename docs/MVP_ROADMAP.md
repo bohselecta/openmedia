@@ -121,11 +121,11 @@ Exit gate:
 
 ## Post-MVP
 
-- Generic HTTP provider
-- ComfyUI provider
 - desktop app with keychain
 - local media probe worker
 - workflow graph
 - actual video provider adapters
 - hosted collaboration/sync
 - KeyRail spinout decision
+
+_Note: Generic HTTP and local ComfyUI provider foundations shipped in Phase 4 (see provider specs)._

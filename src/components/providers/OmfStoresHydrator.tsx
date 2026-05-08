@@ -6,6 +6,8 @@ import { useAssetStore } from "@/lib/assets/assetStore";
 import { useJobStore } from "@/lib/jobs/jobStore";
 import { useProjectStore } from "@/lib/projects/projectStore";
 import { useReceiptStore } from "@/lib/receipts/receiptStore";
+import { useProviderConfigStore } from "@/lib/providers/providerConfigStore";
+import { useProviderRunLogStore } from "@/lib/providers/providerRunLog";
 import { useEffect, useState } from "react";
 
 export function OmfStoresHydrator({
@@ -25,6 +27,8 @@ export function OmfStoresHydrator({
         useReceiptStore.getState().hydrate(),
         useCredentialStore.getState().hydrate(),
         useWorkspaceStore.getState().hydrate(),
+        useProviderConfigStore.getState().hydrate(),
+        useProviderRunLogStore.getState().hydrate(),
       ]);
       if (!cancelled) setReady(true);
     }
