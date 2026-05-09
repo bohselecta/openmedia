@@ -2,6 +2,7 @@
   "name": "openmediaforge",
   "version": "0.5.2-alpha",
   "private": true,
+  "license": "MIT",
   "description": "Local-first, provider-neutral AI media command desk",
   "author": "OpenMediaForge",
   "main": "electron/bootstrap.cjs",

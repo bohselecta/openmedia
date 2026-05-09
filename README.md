@@ -167,6 +167,7 @@ Every adapter implements the same **manifest + validate + submit + poll** surfac
 
 | Doc | Topic |
 |-----|--------|
+| [LICENSE](./LICENSE) | **MIT** — permissive open-source terms for this repository |
 | [AGENTS.md](./AGENTS.md) | Mission, GUI bar, security, verifier discipline |
 | [STATUS.md](./STATUS.md) | Current version, how to run, key file paths |
 | [docs/MVP_ROADMAP.md](./docs/MVP_ROADMAP.md) | Phases and milestones (v0.5.x desktop → v0.6 KeyRail depth) |
@@ -208,4 +209,6 @@ For a guided implementation pass, follow **`BUILD_DIRECTIVE.txt`**.
 
 ## License
 
-This package is **private** (`"private": true` in `package.json`). Add a public license file when you open-source the project.
+OpenMediaForge is released under the **[MIT License](./LICENSE)** — a widely used, permissive license (use, modify, distribute, sublicense, and sell) with minimal conditions: keep the copyright and permission notice, and accept the software “as is.” It is about as liberal as standard open-source gets without using a public-domain dedication such as **Unlicense** (which this project intentionally avoids).
+
+The npm package remains **`"private": true`** for registry purposes only; that does not restrict your rights under the MIT license to the source code in this repository.

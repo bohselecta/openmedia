@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED = [
+    "LICENSE",
     "docs/PRODUCT_SPEC.md",
     "docs/ARCHITECTURE.md",
     "docs/PROVIDER_ADAPTER_SPEC.md",
