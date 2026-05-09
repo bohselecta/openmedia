@@ -72,7 +72,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
     capabilities: ["hosted models", "BYOK routing"],
     authMode: "BYOK",
     honesty:
-      "Not wired in MVP — will use KeyRail credential refs when integrated.",
+      "BYOK adapter — calls Replicate predictions with user tokens via KeyRail execution tickets (no gateway).",
   },
   {
     id: "fal",

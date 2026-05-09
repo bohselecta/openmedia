@@ -1,6 +1,6 @@
 {
   "name": "openmediaforge",
-  "version": "0.4.0-alpha",
+  "version": "0.5.0-alpha",
   "private": true,
   "engines": {
     "node": ">=20.9.0"
@@ -11,7 +11,9 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "verify": "python3 scripts/verify_build.py && npx tsx scripts/verify_runtime.ts"
+    "verify": "python3 scripts/verify_build.py && npx tsx scripts/verify_runtime.ts",
+    "desktop:dev": "cross-env OMF_DEV_PORT=3010 concurrently -k \"next dev -p 3010\" \"wait-on tcp:3010 && electron electron/main.cjs\"",
+    "desktop": "electron electron/main.cjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
@@ -24,13 +26,16 @@
     "@radix-ui/react-tabs": "1.1.13",
     "@radix-ui/react-tooltip": "1.2.8",
     "@tanstack/react-query": "5.90.12",
+    "archiver": "^8.0.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "keytar": "^7.9.0",
     "localforage": "1.10.0",
     "lucide-react": "0.469.0",
     "next": "16.2.6",
     "react": "19.2.6",
     "react-dom": "19.2.6",
+    "sql.js": "^1.14.1",
     "tailwind-merge": "2.6.0",
     "tailwindcss-animate": "1.0.7",
     "zod": "3.25.76",
@@ -40,11 +45,15 @@
     "@types/node": "22.19.3",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^42.0.1",
     "eslint": "9.39.2",
     "eslint-config-next": "16.2.6",
     "postcss": "8.5.6",
     "tailwindcss": "3.4.19",
     "tsx": "4.21.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "wait-on": "^9.0.5"
   }
 }

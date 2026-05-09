@@ -27,6 +27,8 @@ export type Project = {
   /** Present on older records until migration */
   mode?: LegacyProjectMode;
   platformTarget?: "youtube" | "tiktok" | "instagram" | "x" | "film" | "portfolio" | "other";
+  /** Desktop: sanitized folder name under the workspace root */
+  diskFolderName?: string;
   createdAt: string;
   updatedAt: string;
 };

@@ -7,6 +7,7 @@ import {
   Boxes,
   Clapperboard,
   Download,
+  FolderOpen,
   Layers,
   Sparkles,
 } from "lucide-react";
@@ -27,12 +28,14 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { suggestedStableHandle } from "@/lib/assetMap/handles";
+import { isDesktopRuntime } from "@/lib/desktop/isDesktop";
 import { selectionPriorityFromMap } from "@/lib/reference/referencePriorityBridge";
 import { useAssetStore } from "@/lib/assets/assetStore";
 import {
   buildProjectPacket,
   projectPacketToJson,
 } from "@/lib/export/projectPacket";
+import { exportDesktopProjectZip } from "@/lib/export/desktopProjectZip";
 import { useJobStore } from "@/lib/jobs/jobStore";
 import { useCredentialStore } from "@/lib/keyrail/credentialStore";
 import { getManifestById } from "@/lib/models/sampleManifests";
@@ -43,6 +46,7 @@ import { computeProjectStats } from "@/lib/projects/projectStats";
 import { useReceiptStore } from "@/lib/receipts/receiptStore";
 import { validateReferenceSelections } from "@/lib/validation/referenceValidation";
 import { useWorkspaceStore } from "@/lib/workspace/workspaceStore";
+import packageJson from "../../../package.json";
 
 function newId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
@@ -68,6 +72,7 @@ export function ProjectWorkspace({ project }: { project: Project }) {
   const [promptTitle, setPromptTitle] = useState("");
   const [promptBody, setPromptBody] = useState("");
   const [promptHandles, setPromptHandles] = useState("");
+  const [desktopNote, setDesktopNote] = useState<string | null>(null);
 
   const stats = useMemo(
     () => computeProjectStats(project.id, assets, jobs, receipts),
@@ -196,6 +201,42 @@ export function ProjectWorkspace({ project }: { project: Project }) {
     URL.revokeObjectURL(url);
   }
 
+  async function openDesktopProjectFolder() {
+    const d = typeof window !== "undefined" ? window.omfDesktop : undefined;
+    if (!d?.workspaceGet || !project.diskFolderName) {
+      setDesktopNote(
+        "Open this project in the desktop app with a workspace folder selected.",
+      );
+      return;
+    }
+    const ws = await d.workspaceGet();
+    if (!ws?.trim()) {
+      setDesktopNote("Choose a workspace folder in Settings.");
+      return;
+    }
+    const dir = await d.joinPath(ws, project.diskFolderName);
+    await d.ensureDir(dir);
+    await d.shellOpenPath(dir);
+    setDesktopNote(null);
+  }
+
+  async function exportDesktopZip() {
+    const r = await exportDesktopProjectZip({
+      project,
+      assets,
+      assetMap,
+      jobs,
+      receipts,
+      shots,
+      prompts,
+      credentials,
+      appVersion: packageJson.version,
+    });
+    setDesktopNote(
+      r.ok ? `ZIP saved: ${r.zipPath}` : r.error ?? "ZIP export failed.",
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-8 py-10">
       <div className="flex flex-wrap items-start justify-between gap-6">
@@ -227,6 +268,18 @@ export function ProjectWorkspace({ project }: { project: Project }) {
             <Download className="mr-2 h-4 w-4" />
             Export project packet
           </Button>
+          {isDesktopRuntime() && (
+            <>
+              <Button variant="outline" onClick={() => void openDesktopProjectFolder()}>
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Open project folder
+              </Button>
+              <Button variant="outline" onClick={() => void exportDesktopZip()}>
+                <Download className="mr-2 h-4 w-4" />
+                Export ZIP packet
+              </Button>
+            </>
+          )}
           <Button variant="outline" asChild>
             <Link href="/studio/video">Video plan</Link>
           </Button>
@@ -235,6 +288,9 @@ export function ProjectWorkspace({ project }: { project: Project }) {
           </Button>
         </div>
       </div>
+      {desktopNote && (
+        <p className="mt-2 max-w-3xl text-xs text-ink-muted">{desktopNote}</p>
+      )}
 
       <div className="mt-10 grid gap-5 lg:grid-cols-[1fr_320px]">
         <Tabs defaultValue="overview" className="w-full">

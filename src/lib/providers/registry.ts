@@ -2,6 +2,7 @@ import type { GenerationProvider } from "@/lib/providers/types";
 import { comfyProvider } from "@/lib/providers/comfyProvider";
 import { genericHttpProvider } from "@/lib/providers/genericHttpProvider";
 import { mockProvider } from "@/lib/providers/mockProvider";
+import { replicateProvider } from "@/lib/providers/replicateProvider";
 import { sdcppProvider } from "@/lib/providers/sdcppProvider";
 import { wan2gpProvider } from "@/lib/providers/wan2gpProvider";
 
@@ -13,6 +14,7 @@ export function loadProviderRegistry(): GenerationProvider[] {
     mockProvider,
     genericHttpProvider,
     comfyProvider,
+    replicateProvider,
     sdcppProvider,
     wan2gpProvider,
   ];

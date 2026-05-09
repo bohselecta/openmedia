@@ -7,10 +7,14 @@ import type {
 } from "@/lib/keyrail/types";
 import { appendAuditEvent } from "@/lib/keyrail/auditLog";
 import {
-  loadDevSecret,
   saveDevSecret,
   wipeDevSecret,
 } from "@/lib/keyrail/browserDevVault";
+import {
+  saveKeychainSecret,
+  wipeKeychainSecret,
+} from "@/lib/keyrail/desktopKeychainVault";
+import { loadVaultSecretForCredentialRef } from "@/lib/keyrail/vaultSecrets";
 import { useCredentialStore } from "@/lib/keyrail/credentialStore";
 import { mintExecutionTicket } from "@/lib/keyrail/executionTickets";
 import type {
@@ -57,6 +61,9 @@ export const omfKeyRail: KeyRail = {
     if (input.rawSecret && input.storageMode === "browser-dev") {
       await saveDevSecret(id, input.rawSecret);
     }
+    if (input.rawSecret && input.storageMode === "desktop-keychain") {
+      await saveKeychainSecret(id, input.rawSecret);
+    }
     useCredentialStore.getState().upsertCredential(ref);
     return ref;
   },
@@ -94,6 +101,9 @@ export const omfKeyRail: KeyRail = {
     if (cred?.storageMode === "browser-dev") {
       await wipeDevSecret(credentialRef);
     }
+    if (cred?.storageMode === "desktop-keychain") {
+      await wipeKeychainSecret(credentialRef);
+    }
   },
 
   createExecutionTicket: async (input) => mintExecutionTicket(input),
@@ -109,7 +119,9 @@ export const omfKeyRail: KeyRail = {
         secretHandle: "none",
       };
     }
-    const secret = await loadDevSecret(ticket.credentialRef);
+    const secret = await loadVaultSecretForCredentialRef(
+      ticket.credentialRef,
+    );
     return {
       ticketId: ticket.id,
       providerId: ticket.providerId,

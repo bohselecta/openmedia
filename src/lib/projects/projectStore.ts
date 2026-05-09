@@ -3,6 +3,7 @@ import {
   migrateProjectRecord,
   type StoredProject,
 } from "@/lib/projects/projectMigration";
+import { defaultDiskFolderForProject } from "@/lib/desktop/projectDiskFolder";
 import { create } from "zustand";
 import { storageProjects } from "@/lib/storage/storage";
 
@@ -13,9 +14,23 @@ function newId() {
   return `proj-${Date.now()}`;
 }
 
+function withDesktopDiskFolder(p: Project): Project {
+  if (
+    typeof window !== "undefined" &&
+    window.omfDesktop?.enabled &&
+    !p.diskFolderName
+  ) {
+    return {
+      ...p,
+      diskFolderName: defaultDiskFolderForProject(p.title, p.id),
+    };
+  }
+  return p;
+}
+
 function seedProject(): Project {
   const now = new Date().toISOString();
-  return {
+  return withDesktopDiskFolder({
     id: newId(),
     title: "Untitled project",
     description: "Local-first demo project",
@@ -23,7 +38,7 @@ function seedProject(): Project {
     platformTarget: "other",
     createdAt: now,
     updatedAt: now,
-  };
+  });
 }
 
 type ProjectState = {
@@ -59,8 +74,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     await storageProjects.setItem("currentProjectId", get().currentProjectId);
   },
   upsertProject: (p) => {
+    const next = withDesktopDiskFolder({ ...p });
     set((s) => ({
-      projects: [...s.projects.filter((x) => x.id !== p.id), p],
+      projects: [...s.projects.filter((x) => x.id !== next.id), next],
     }));
     void get().persist();
   },

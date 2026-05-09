@@ -26,6 +26,7 @@ import { listAuditEvents } from "@/lib/keyrail/auditLog";
 import { omfKeyRail } from "@/lib/keyrail/keyrail";
 import { useCredentialStore } from "@/lib/keyrail/credentialStore";
 import type { CredentialUseEvent } from "@/lib/keyrail/types";
+import type { CredentialRef } from "@/lib/providers/types";
 
 export function KeysBoard() {
   const [open, setOpen] = useState(false);
@@ -33,12 +34,19 @@ export function KeysBoard() {
   const [secret, setSecret] = useState("");
   const [providerId, setProviderId] = useState("mock");
 
+  const [storageMode, setStorageMode] =
+    useState<CredentialRef["storageMode"]>(() =>
+      typeof window !== "undefined" && window.omfDesktop?.enabled ?
+        "desktop-keychain"
+      : "browser-dev",
+    );
+
   async function addCredential() {
     await omfKeyRail.createCredential({
       providerId,
       label,
       rawSecret: secret || undefined,
-      storageMode: "browser-dev",
+      storageMode,
       scopes: ["text-to-image"],
     });
     setSecret("");
@@ -119,6 +127,21 @@ export function KeysBoard() {
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="Never shown again after save"
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label>Storage mode</Label>
+                <Input
+                  value={storageMode}
+                  onChange={(e) =>
+                    setStorageMode(e.target.value as CredentialRef["storageMode"])
+                  }
+                  placeholder="browser-dev | desktop-keychain"
+                />
+                <p className="text-[11px] text-ink-faint">
+                  Desktop defaults to OS keychain (
+                  <span className="font-mono">desktop-keychain</span>). Browser demos
+                  use <span className="font-mono">browser-dev</span>.
+                </p>
               </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">

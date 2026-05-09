@@ -1,4 +1,4 @@
-import { loadDevSecret } from "@/lib/keyrail/browserDevVault";
+import { loadVaultSecretForCredentialRef } from "@/lib/keyrail/vaultSecrets";
 import { useProviderConfigStore } from "@/lib/providers/providerConfigStore";
 import type {
   ExecutionTicket,
@@ -180,7 +180,7 @@ async function buildAuthHeaders(
   if (cfg.authMode === "none") return headers;
   const ref = ticket.credentialRef ?? cfg.credentialRef;
   if (!ref) return headers;
-  const secret = await loadDevSecret(ref);
+  const secret = await loadVaultSecretForCredentialRef(ref);
   if (!secret) return headers;
   if (cfg.authMode === "bearer") {
     headers.Authorization = `Bearer ${secret}`;

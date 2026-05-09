@@ -69,6 +69,26 @@ export const SAMPLE_MANIFESTS: ModelManifest[] = [
       requiresPrimaryReference: true,
     },
   },
+  {
+    id: "replicate-image-byok-v1",
+    providerId: "replicate",
+    name: "Replicate image (BYOK)",
+    task: "text-to-image",
+    description:
+      "Call Replicate predictions with your own API token. Set job settings.replicateVersion to a model version (owner/name:version_hash).",
+    version: "1.0.0",
+    inputSchema: { type: "object" },
+    outputSchema: { type: "object" },
+    estimatedCost: {
+      amount: 0,
+      currency: "USD",
+      unit: "unknown",
+      explanation: "Billed by Replicate to your account — not by OpenMediaForge.",
+    },
+    tags: ["replicate", "byok", "cloud"],
+    referenceBudget: { maxReferences: 0, requiresPrimaryReference: false },
+    localOrRemote: "remote",
+  },
 ];
 
 export function getManifestById(id: string): ModelManifest | undefined {

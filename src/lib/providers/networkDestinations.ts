@@ -41,5 +41,10 @@ export function computeNetworkDestinations(
       return ["comfyui-local:(invalid baseUrl)"];
     }
   }
+  if (request.providerId === "replicate") {
+    return [
+      "replicate.com /v1/predictions (BYOK — user token via KeyRail; no OpenMediaForge gateway).",
+    ];
+  }
   return [];
 }

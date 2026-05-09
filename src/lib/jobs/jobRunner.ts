@@ -1,3 +1,4 @@
+import { mirrorRemoteOutputsForJobDesktop } from "@/lib/desktop/assetMirror";
 import type { Asset } from "@/lib/assets/assetTypes";
 import type { AssetMapEntry } from "@/lib/assetMap/assetMapTypes";
 import { suggestedStableHandle } from "@/lib/assetMap/handles";
@@ -133,7 +134,8 @@ export async function runJob(jobId: string): Promise<void> {
     negativePrompt: job.negativePrompt,
     settings: {
       ...job.settings,
-      ...(effectiveCredentialRef && job.providerId === "generic-http" ?
+      ...(effectiveCredentialRef &&
+      (job.providerId === "generic-http" || job.providerId === "replicate") ?
         { credentialRef: effectiveCredentialRef }
       : {}),
     },
@@ -261,6 +263,8 @@ export async function runJob(jobId: string): Promise<void> {
       (useProviderConfigStore
         .getState()
         .getActiveConfigForProvider("comfyui-local")?.comfy?.pollIntervalMs ?? 800)
+    : job.providerId === "replicate" ?
+      1200
     : 280;
 
   let status = await provider.poll(handle.providerJobId, ticket);
@@ -310,6 +314,7 @@ export async function runJob(jobId: string): Promise<void> {
   const outputs = status.outputAssets ?? [];
   const outputIds: string[] = [];
   const now = new Date().toISOString();
+  const createdAssets: Asset[] = [];
   for (const o of outputs) {
     const remoteHttp =
       o.uri.startsWith("http://") || o.uri.startsWith("https://");
@@ -327,10 +332,19 @@ export async function runJob(jobId: string): Promise<void> {
       updatedAt: now,
     };
     useAssetStore.getState().upsertAsset(asset);
+    createdAssets.push(asset);
     outputIds.push(asset.id);
     if (job.projectId) {
       ensureAssetMapOutputEntry(asset, job.projectId);
     }
+  }
+
+  if (
+    job.providerId === "comfyui-local" &&
+    typeof window !== "undefined" &&
+    window.omfDesktop?.enabled
+  ) {
+    void mirrorRemoteOutputsForJobDesktop(job, createdAssets);
   }
 
   useProviderRunLogStore.getState().append({

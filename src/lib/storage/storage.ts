@@ -1,7 +1,11 @@
-import localforage from "localforage";
 import { createOmfStore } from "@/lib/storage/indexedDbStorage";
 
-export type OmfStorage = ReturnType<typeof localforage.createInstance>;
+export type OmfStorage = {
+  getItem<T>(key: string): Promise<T | null>;
+  setItem(key: string, value: unknown): Promise<void>;
+  removeItem(key: string): Promise<void>;
+  clear(): Promise<void>;
+};
 
 export const storageProjects = createOmfStore("projects");
 export const storageAssets = createOmfStore("assets");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +25,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { getProviderById } from "@/lib/providers/registry";
 import { useProviderConfigStore } from "@/lib/providers/providerConfigStore";
 import { PROVIDER_CATALOG } from "@/lib/providers/uiCatalog";
-import type { ProviderConfig, ComfyWorkflowTemplate } from "@/lib/providers/types";
-import { modelIdForGenericConfig } from "@/lib/providers/genericHttpProvider";
+import type {
+  ComfyWorkflowTemplate,
+  GenerationRequest,
+  ProviderConfig,
+} from "@/lib/providers/types";
+import {
+  interpolateTemplate,
+  modelIdForGenericConfig,
+} from "@/lib/providers/genericHttpProvider";
+import { redactedGenericHttpRecipe } from "@/lib/providers/genericHttpRecipeExport";
 import { newTemplateId, validateComfyTemplate } from "@/lib/providers/comfyWorkflowTemplates";
 
 type StoreApi = ReturnType<typeof useProviderConfigStore.getState>;
@@ -77,6 +85,11 @@ export function ProvidersBoard() {
         else if (comfy.lastTestStatus === "failed") status = "Server offline or test failed";
         else if (runnableComfy === 0) status = "Connected · no runnable template";
         else status = `Connected · ${runnableComfy} runnable template(s)`;
+      } else if (entry.id === "replicate") {
+        status =
+          adapter && adapter.capabilities.length > 0 ?
+            "BYOK · Replicate predictions (token + version required)"
+          : status;
       } else if (adapter && adapter.capabilities.length === 0) {
         status = "Honest placeholder — not runnable";
       } else if (adapter) {
@@ -278,6 +291,7 @@ function GenericHttpDialog(props: {
   const [pollMode, setPollMode] = useState<"none" | "get" | "post">("none");
   const [pollUrl, setPollUrl] = useState("http://127.0.0.1:9999/status/{{jobId}}");
   const [testMsg, setTestMsg] = useState<string | null>(null);
+  const [dryPreview, setDryPreview] = useState<string | null>(null);
 
   async function save(enabled: boolean) {
     const row = props.onCreate({
@@ -359,6 +373,36 @@ function GenericHttpDialog(props: {
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
             />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => {
+                const previewReq: GenerationRequest = {
+                  providerId: "generic-http",
+                  modelId: modelIdForGenericConfig("preview"),
+                  task: "text-to-image",
+                  prompt: "dry-run preview prompt",
+                  settings: { width: 512, height: 512 },
+                  inputAssetIds: [],
+                  referenceSelections: [],
+                  outputPolicy: "local-only",
+                };
+                try {
+                  setDryPreview(interpolateTemplate(template, previewReq));
+                } catch (e) {
+                  setDryPreview(String(e));
+                }
+              }}
+            >
+              Preview interpolated JSON (dry-run)
+            </Button>
+            {dryPreview && (
+              <pre className="max-h-48 overflow-auto rounded-lg border border-line bg-black/30 p-3 text-[11px] leading-relaxed">
+                {dryPreview}
+              </pre>
+            )}
           </div>
           <div className="grid gap-2">
             <Label>Response output URL path</Label>
@@ -425,6 +469,24 @@ function GenericHttpDialog(props: {
                 >
                   Test
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob(
+                      [JSON.stringify(redactedGenericHttpRecipe(c), null, 2)],
+                      { type: "application/json" },
+                    );
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `omf-generic-http-recipe-${c.id.slice(0, 8)}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  Export recipe
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => props.onDelete(c.id)}>
                   Delete
                 </Button>
@@ -452,6 +514,10 @@ function ComfyDialog(props: {
   const [tplLabel, setTplLabel] = useState("Imported workflow");
   const [task, setTask] = useState<"text-to-image" | "image-to-image">("text-to-image");
   const [promptPath, setPromptPath] = useState("6.inputs.text");
+  const [negPromptPath, setNegPromptPath] = useState("");
+  const [seedPathField, setSeedPathField] = useState("");
+  const [widthPathField, setWidthPathField] = useState("");
+  const [heightPathField, setHeightPathField] = useState("");
   const [outNodes, setOutNodes] = useState("9");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -478,19 +544,40 @@ function ComfyDialog(props: {
     props.onActive("comfyui-local", row.id);
   }
 
+  async function applyDesktopComfyDefault(cfgId: string) {
+    const d = typeof window !== "undefined" ? window.omfDesktop : undefined;
+    if (!d?.defaultComfyBaseUrl) {
+      setMsg("Desktop bridge not available in this browser session.");
+      return;
+    }
+    const u = await d.defaultComfyBaseUrl();
+    props.onUpdate(cfgId, { baseUrl: u });
+    setMsg(`Base URL locked to ${u} — loopback default for local ComfyUI.`);
+  }
+
   function importTemplate() {
     if (!active) {
       setMsg("Create a local profile first.");
       return;
+    }
+    const reqIn: ComfyWorkflowTemplate["requiredInputs"] = ["prompt"];
+    if (negPromptPath.trim()) reqIn.push("negativePrompt");
+    if (seedPathField.trim()) reqIn.push("seed");
+    if (widthPathField.trim() && heightPathField.trim()) {
+      reqIn.push("width", "height");
     }
     const tpl: ComfyWorkflowTemplate = {
       id: newTemplateId(),
       label: tplLabel,
       task,
       workflowJson: wf,
-      requiredInputs: ["prompt"],
+      requiredInputs: reqIn,
       outputNodeIds: outNodes.split(",").map((s) => s.trim()).filter(Boolean),
       promptPath: promptPath || undefined,
+      negativePromptPath: negPromptPath.trim() || undefined,
+      seedPath: seedPathField.trim() || undefined,
+      widthPath: widthPathField.trim() || undefined,
+      heightPath: heightPathField.trim() || undefined,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -535,6 +622,15 @@ function ComfyDialog(props: {
                 value={active.baseUrl ?? ""}
                 onChange={(e) => props.onUpdate(active.id, { baseUrl: e.target.value })}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-fit"
+                onClick={() => void applyDesktopComfyDefault(active.id)}
+              >
+                Apply desktop local default (127.0.0.1)
+              </Button>
             </div>
             <Button
               variant="outline"
@@ -567,8 +663,21 @@ function ComfyDialog(props: {
               <Input value={task} onChange={(e) => setTask(e.target.value as typeof task)} />
             </div>
             <div className="grid gap-2">
-              <Label>Prompt path (node.inputs.field)</Label>
+              <Label>Prompt path</Label>
               <Input value={promptPath} onChange={(e) => setPromptPath(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Negative prompt path (optional)</Label>
+              <Input value={negPromptPath} onChange={(e) => setNegPromptPath(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Seed path (optional)</Label>
+              <Input value={seedPathField} onChange={(e) => setSeedPathField(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Width / height paths (optional pair)</Label>
+              <Input value={widthPathField} onChange={(e) => setWidthPathField(e.target.value)} placeholder="e.g. 5.inputs.width" />
+              <Input value={heightPathField} onChange={(e) => setHeightPathField(e.target.value)} placeholder="e.g. 5.inputs.height" />
             </div>
             <div className="grid gap-2">
               <Label>Output node ids (comma)</Label>

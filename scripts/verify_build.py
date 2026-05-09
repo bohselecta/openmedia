@@ -83,6 +83,7 @@ IMPLEMENTATION_FILES = [
     "src/lib/providers/genericHttpProvider.ts",
     "src/lib/providers/comfyProvider.ts",
     "src/lib/providers/comfyClient.ts",
+    "src/lib/providers/replicateProvider.ts",
     "src/lib/providers/providerConfigStore.ts",
     "src/lib/providers/providerRunLog.ts",
     "src/lib/providers/providerConfig.ts",

@@ -126,6 +126,9 @@ Exit gate:
 - workflow graph
 - actual video provider adapters
 - hosted collaboration/sync
-- KeyRail spinout decision
+
+## KeyRail spinout gate
+
+Treat KeyRail as **internal infrastructure** until multiple external apps or platforms need the same credential-ref + execution-ticket + audit contract as a standalone library or service. Vanity extraction slows trust work — defer spinout until that demand is obvious.
 
 _Note: Generic HTTP and local ComfyUI provider foundations shipped in Phase 4 (see provider specs)._

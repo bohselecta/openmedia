@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { FolderOpen, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,11 +12,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { isDesktopRuntime } from "@/lib/desktop/isDesktop";
+import { importDesktopMediaIntoCurrentProject } from "@/lib/desktop/importLibraryMedia";
 import { useAssetStore } from "@/lib/assets/assetStore";
 
 export function AssetsBoard() {
   const assets = useAssetStore((s) => s.assets);
   const mapEntries = useAssetStore((s) => s.assetMap);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   const grouped = useMemo(() => {
     return [...assets].sort(
@@ -34,6 +39,25 @@ export function AssetsBoard() {
           <p className="mt-3 max-w-2xl text-sm text-ink-muted">
             Every generation lands here with explicit roles and rights metadata.
           </p>
+          {isDesktopRuntime() && (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void importDesktopMediaIntoCurrentProject().then((r) =>
+                    setImportMsg(r.message),
+                  )
+                }
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Import media files…
+              </Button>
+              {importMsg && (
+                <span className="text-xs text-ink-muted">{importMsg}</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {grouped.length === 0 && (
@@ -71,6 +95,22 @@ export function AssetsBoard() {
                 <CardDescription className="font-mono text-[11px]">
                   {asset.uri.slice(0, 48)}…
                 </CardDescription>
+                {isDesktopRuntime() && asset.uri.startsWith("file:") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 w-fit"
+                    onClick={() => {
+                      let raw = asset.uri.replace(/^file:\/\//, "");
+                      if (/^\/[A-Za-z]:/.test(raw)) raw = raw.slice(1);
+                      void window.omfDesktop?.shellReveal(raw);
+                    }}
+                  >
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                    Reveal in folder
+                  </Button>
+                )}
               </CardHeader>
             </Card>
           ))}

@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { DesktopWorkstationCard } from "@/components/settings/DesktopWorkstationCard";
 import { hardResetLocalApp } from "@/lib/app/resetLocalApp";
 
 export function SettingsClient({
@@ -76,8 +77,8 @@ export function SettingsClient({
             <div>
               <CardTitle>Storage mode</CardTitle>
               <CardDescription>
-                IndexedDB via localForage — projects, assets, jobs, receipts,
-                workspace bundles, KeyRail metadata.
+                Browser: IndexedDB via localForage. Desktop: SQLite-backed KV in
+                the Electron shell (same app routes; data stays on device).
               </CardDescription>
             </div>
           </CardHeader>
@@ -163,15 +164,7 @@ export function SettingsClient({
           </CardContent>
         </Card>
 
-        <Card className="border-dashed border-line bg-panel/70">
-          <CardHeader>
-            <CardTitle>Desktop mode</CardTitle>
-            <CardDescription>
-              Native shells will reuse the same contracts — deeper filesystem +
-              keychain access without changing receipt semantics.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <DesktopWorkstationCard />
       </div>
     </div>
   );

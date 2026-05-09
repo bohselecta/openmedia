@@ -41,6 +41,7 @@ export function migrateProjectRecord(p: StoredProject): Project {
     projectKind,
     mode: p.mode,
     platformTarget: p.platformTarget ?? "other",
+    diskFolderName: p.diskFolderName,
     createdAt: p.createdAt ?? now,
     updatedAt: p.updatedAt ?? now,
   };
