@@ -35,6 +35,10 @@ import {
   modelIdForGenericConfig,
 } from "@/lib/providers/genericHttpProvider";
 import { redactedGenericHttpRecipe } from "@/lib/providers/genericHttpRecipeExport";
+import {
+  parseGenericHttpRecipeJson,
+  recipeToProviderConfigInput,
+} from "@/lib/recipe/importGenericHttpRecipe";
 import { newTemplateId, validateComfyTemplate } from "@/lib/providers/comfyWorkflowTemplates";
 
 type StoreApi = ReturnType<typeof useProviderConfigStore.getState>;
@@ -61,6 +65,8 @@ export function ProvidersBoard() {
 
   const [ghOpen, setGhOpen] = useState(false);
   const [comfyOpen, setComfyOpen] = useState(false);
+  const [recipeImportOpen, setRecipeImportOpen] = useState(false);
+  const [recipeErr, setRecipeErr] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     return PROVIDER_CATALOG.map((entry) => {
@@ -81,10 +87,16 @@ export function ProvidersBoard() {
             `${ghCount} saved config(s) — open card to edit`
           : "Configure BYO HTTP endpoint (advanced)";
       } else if (entry.id === "comfyui-local") {
-        if (!comfy?.baseUrl) status = "Not configured";
-        else if (comfy.lastTestStatus === "failed") status = "Server offline or test failed";
-        else if (runnableComfy === 0) status = "Connected · no runnable template";
-        else status = `Connected · ${runnableComfy} runnable template(s)`;
+        if (!comfy?.baseUrl) status = "Comfy: not configured";
+        else if (!comfy.lastTestAt && comfy.lastTestStatus !== "failed") {
+          status = "Comfy: base URL set · reachability not verified yet";
+        } else if (comfy.lastTestStatus === "failed") {
+          status = "Comfy: unreachable (last connection test failed)";
+        } else if (runnableComfy === 0) {
+          status = "Comfy: reachable · add a validated workflow template";
+        } else {
+          status = `Comfy: reachable · ${runnableComfy} runnable template(s)`;
+        }
       } else if (entry.id === "replicate") {
         status =
           adapter && adapter.capabilities.length > 0 ?
@@ -171,6 +183,9 @@ export function ProvidersBoard() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href="/providers/activity">Provider activity log</Link>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setRecipeImportOpen(true)}>
+            Import HTTP recipe (JSON)
           </Button>
           <Button variant="accent" size="sm" onClick={() => setGhOpen(true)}>
             Generic HTTP setup
@@ -263,6 +278,55 @@ export function ProvidersBoard() {
         onActive={setActive}
         activeId={activeBy["comfyui-local"]}
       />
+
+      <Dialog open={recipeImportOpen} onOpenChange={setRecipeImportOpen}>
+        <DialogContent className="border-line-strong bg-panel-elevated sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import Generic HTTP recipe</DialogTitle>
+            <DialogDescription className="text-ink-muted">
+              Use JSON exported from OpenMediaForge (&quot;redacted recipe&quot;). Raw
+              secrets are rejected — bind credentials from Keys after import.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <Label htmlFor="recipe-file">Recipe JSON file</Label>
+            <Input
+              id="recipe-file"
+              type="file"
+              accept="application/json,.json"
+              className="cursor-pointer"
+              onChange={(e) => {
+                setRecipeErr(null);
+                const input = e.target;
+                const f = input.files?.[0];
+                if (!f) return;
+                void (async () => {
+                  const text = await f.text();
+                  const r = parseGenericHttpRecipeJson(text);
+                  if (!r.ok) {
+                    setRecipeErr(r.error);
+                    return;
+                  }
+                  createCfg({
+                    ...recipeToProviderConfigInput(r.data),
+                    enabled: false,
+                  });
+                  setRecipeImportOpen(false);
+                  input.value = "";
+                })();
+              }}
+            />
+            {recipeErr && (
+              <p className="text-xs text-danger leading-relaxed">{recipeErr}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecipeImportOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

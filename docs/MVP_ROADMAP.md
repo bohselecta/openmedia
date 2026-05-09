@@ -6,6 +6,16 @@
 - **Phase 2 — shipped:** creator-grade GUI pass, `/studio` command dashboard, project workspace + Asset Map + Reference Budget UI, honest provider catalog, docs + verification alignment.
 - **Phase 3 — active:** operational references (selection → job → receipt), validation gate in Image Studio, storyboard → studio bootstrap, queue lane honesty, project packet + ledger JSON exports, KeyRail audit surfacing.
 
+## Milestone — v0.5.1-alpha (Desktop Trust Pass + Real Provider Loop) — **shipped**
+
+End-to-end desktop creator spine hardened: SQLite KV persistence path, failure receipts, redacted project packets (Zod + secret-pattern gate), provider activity + configs in export, Replicate BYOK error mapping + desktop output mirroring, Comfy connection wording, Generic HTTP recipe import (no secret import), Settings/Activity trust diagnostics, UTF-8 packet files in ZIP. See [docs/DESKTOP_TRUST_PASS.md](DESKTOP_TRUST_PASS.md).
+
+## Milestone — v0.5.2-alpha (Installable Linux desktop artifact) — **current focus**
+
+Ship a **Linux AppImage** that bundles production Next (standalone) + Electron: no `npm run desktop:dev` at runtime, restart-safe SQLite KV + workspace + receipts, extended **Local trust check** panel (app/storage/key/workspace/packet/version/platform), packaging and smoke docs. See [docs/DESKTOP_PACKAGING.md](DESKTOP_PACKAGING.md) and [docs/DESKTOP_SMOKE_CHECKLIST.md](DESKTOP_SMOKE_CHECKLIST.md).
+
+**Next:** v0.5.3 recipe + Comfy template depth; v0.6.0 KeyRail grant layer (still inside OpenMediaForge until spinout gates).
+
 ## Phase 0 — Repo scaffold
 
 - Next.js app
@@ -121,7 +131,7 @@ Exit gate:
 
 ## Post-MVP
 
-- desktop app with keychain
+- richer desktop installers (`.deb` / signing) after AppImage path is stable
 - local media probe worker
 - workflow graph
 - actual video provider adapters

@@ -1,19 +1,65 @@
 {
   "name": "openmediaforge",
-  "version": "0.5.0-alpha",
+  "version": "0.5.2-alpha",
   "private": true,
+  "description": "Local-first, provider-neutral AI media command desk",
+  "author": "OpenMediaForge",
+  "main": "electron/bootstrap.cjs",
   "engines": {
     "node": ">=20.9.0"
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "cross-env OMF_STANDALONE=1 next build && node scripts/copy-standalone-assets.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "verify": "python3 scripts/verify_build.py && npx tsx scripts/verify_runtime.ts",
-    "desktop:dev": "cross-env OMF_DEV_PORT=3010 ELECTRON_DISABLE_SANDBOX=1 concurrently -k \"next dev -p 3010\" \"wait-on tcp:3010 && electron electron/main.cjs\"",
-    "desktop": "cross-env ELECTRON_DISABLE_SANDBOX=1 electron electron/main.cjs"
+    "desktop:dev": "cross-env OMF_DEV_PORT=3010 ELECTRON_DISABLE_SANDBOX=1 concurrently -k \"next dev -p 3010\" \"wait-on tcp:3010 && electron electron/bootstrap.cjs --no-sandbox --disable-setuid-sandbox\"",
+    "desktop": "cross-env ELECTRON_DISABLE_SANDBOX=1 electron electron/bootstrap.cjs --no-sandbox --disable-setuid-sandbox",
+    "desktop:pack": "npm run build && electron-builder --linux AppImage"
+  },
+  "build": {
+    "appId": "com.openmediaforge.app",
+    "productName": "OpenMediaForge",
+    "copyright": "Copyright © OpenMediaForge",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "**/*",
+      "!src{,/**}",
+      "!.next{,/**}",
+      "!docs{,/**}",
+      "!contracts{,/**}",
+      "!scripts{,/**}",
+      "!dist-electron{,/**}",
+      "!.cursor{,/**}",
+      "!.git{,/**}",
+      "!**/*.tsbuildinfo",
+      "!eslint.config.*",
+      "!postcss.config.*",
+      "!tailwind.config.*",
+      "!tsconfig.json",
+      "!next-env.d.ts",
+      "!next.config.ts",
+      "!BUILD_DIRECTIVE.txt",
+      "!STATUS.md",
+      "!AGENTS.md"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/sql.js/dist/sql-wasm.wasm",
+      "**/node_modules/keytar/**/*.node"
+    ],
+    "afterPack": "scripts/after-pack-omf-next.mjs",
+    "afterAllArtifactBuild": "scripts/after-all-artifacts-launcher.mjs",
+    "linux": {
+      "target": ["AppImage"],
+      "category": "AudioVideo",
+      "maintainer": "OpenMediaForge",
+      "executableName": "openmediaforge"
+    }
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
@@ -48,6 +94,7 @@
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^42.0.1",
+    "electron-builder": "^26.0.12",
     "eslint": "9.39.2",
     "eslint-config-next": "16.2.6",
     "postcss": "8.5.6",

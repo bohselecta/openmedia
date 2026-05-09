@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getAppStorageMode } from "@/lib/desktop/trustDiagnostics";
 
 function subscribeDesktop() {
   return () => {};
@@ -84,6 +85,7 @@ export function DesktopWorkstationCard() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="cyan">Electron shell</Badge>
           <Badge variant="muted">{window.omfDesktop?.platform}</Badge>
+          <Badge variant="lime">Storage: {getAppStorageMode()}</Badge>
         </div>
         <p className="break-all font-mono text-xs text-ink-muted">
           {workspace ?? "No workspace selected"}

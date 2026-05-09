@@ -22,6 +22,9 @@ REQUIRED = [
     "docs/BYOK_KEYRAIL_SPEC.md",
     "docs/DATA_MODEL.md",
     "docs/MVP_ROADMAP.md",
+    "docs/DESKTOP_TRUST_PASS.md",
+    "docs/DESKTOP_PACKAGING.md",
+    "docs/DESKTOP_SMOKE_CHECKLIST.md",
     "docs/SECURITY.md",
     "docs/PROJECT_PACKET_SPEC.md",
     "docs/REFERENCE_EXECUTION_SPEC.md",
@@ -75,7 +78,7 @@ SECRET_FIELD_PATTERNS = [
 ]
 
 SOURCE_EXTS = {".ts", ".tsx", ".js", ".jsx"}
-EXCLUDE_DIRS = {"node_modules", ".next", "dist", "build", ".git"}
+EXCLUDE_DIRS = {"node_modules", ".next", "dist", "dist-electron", "build", ".git"}
 
 IMPLEMENTATION_FILES = [
     "src/lib/providers/registry.ts",
@@ -94,6 +97,9 @@ IMPLEMENTATION_FILES = [
     "src/lib/keyrail/keyrail.ts",
     "src/lib/validation/referenceValidation.ts",
     "src/lib/export/projectPacket.ts",
+    "src/lib/export/packetRedaction.ts",
+    "src/lib/export/projectPacketSchema.ts",
+    "src/lib/recipe/importGenericHttpRecipe.ts",
 ]
 
 API_BASE_PATTERN = re.compile(r"https://api\.[a-z0-9.-]+", re.IGNORECASE)
@@ -271,6 +277,49 @@ def check_provider_phase4():
     return ok("provider foundations (phase 4) markers present")
 
 
+def check_dist_electron_has_no_env_files():
+    dist = ROOT / "dist-electron"
+    if not dist.exists():
+        return ok("dist-electron absent — skip packaged tree env scan")
+    bad = {".env", ".env.local", ".env.production", ".env.development"}
+    hits = []
+    for path in dist.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.name in bad:
+            hits.append(str(path.relative_to(ROOT)))
+    if hits:
+        return fail("unexpected env files under dist-electron: " + ", ".join(hits[:30]))
+    return ok("dist-electron has no committed-style .env* filenames")
+
+
+def check_renderer_console_not_logging_auth_headers():
+    """Heuristic: same source line must not combine console.* and Authorization."""
+    src = ROOT / "src"
+    if not src.exists():
+        return ok("no src tree")
+    hits = []
+    for path in src.rglob("*"):
+        if not path.is_file() or path.suffix not in {".ts", ".tsx"}:
+            continue
+        text = path.read_text(errors="ignore")
+        for i, line in enumerate(text.splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("//") or stripped.startswith("*"):
+                continue
+            low = line.lower()
+            if "authorization" not in low:
+                continue
+            if "console." not in line:
+                continue
+            hits.append(f"{path.relative_to(ROOT)}:{i}")
+    if hits:
+        return fail(
+            "avoid console logging lines that mention Authorization: " + ", ".join(hits[:20])
+        )
+    return ok("no Authorization + console.* on same renderer line")
+
+
 def main():
     checks = [
         check_required_docs(),
@@ -282,6 +331,8 @@ def main():
         check_forbidden_strings(),
         check_hardcoded_api_bases(),
         check_secret_fields_in_contracts(),
+        check_dist_electron_has_no_env_files(),
+        check_renderer_console_not_logging_auth_headers(),
     ]
     if not all(checks):
         sys.exit(1)

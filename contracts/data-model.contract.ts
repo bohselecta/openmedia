@@ -110,12 +110,17 @@ export type GenerationJob = {
   completedAt?: string;
 };
 
+/** Provenance outcome for a generation ledger row (distinct from queue job status). */
+export type ReceiptLedgerStatus = "succeeded" | "failed" | "canceled";
+
 export type GenerationReceipt = {
   id: string;
   jobId: string;
   projectId?: string;
   providerId: string;
   credentialRef?: string;
+  /** Canonical manifest id (same semantic as modelId for OMF manifests). */
+  manifestId: string;
   modelId: string;
   task: MediaTask;
   prompt?: string;
@@ -125,12 +130,22 @@ export type GenerationReceipt = {
   inputAssetIds: string[];
   referenceSelections: ReferenceSelection[];
   outputAssetIds: string[];
-  estimatedCost?: number;
-  actualCost?: number;
+  estimatedCost?: number | null;
+  actualCost?: number | null;
   localOrRemote: "local" | "remote" | "hybrid" | "mock";
   networkDestinations?: string[];
   modelManifestVersion?: string;
   createdAt: string;
+  /** When the run finished (success, failure, or cancel). */
+  completedAt?: string;
+  /** Ledger outcome — persisted for failed runs as well as successes. */
+  ledgerStatus: ReceiptLedgerStatus;
+  /** Non-null provider spend when known; otherwise null. */
+  providerReportedCostUsd?: number | null;
+  /** Schema version for redaction / export semantics (bump when packet rules change). */
+  redactionVersion: string;
+  /** Human-safe summary for failed/canceled receipts (no raw secrets). */
+  failureSummary?: string;
 };
 
 /** Reference Budget v1 — declarative warning kinds (computed in UI) */

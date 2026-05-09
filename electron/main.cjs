@@ -1,6 +1,9 @@
 /**
  * OpenMediaForge desktop shell (Electron).
  * Loads the Next.js UI and exposes OS authority: KV (SQLite), keychain, filesystem.
+ *
+ * Production / packaged: spawns the Next standalone server using the same binary
+ * with ELECTRON_RUN_AS_NODE=1 (no separate Node install). Dev: loads next dev URL.
  */
 const {
   app,
@@ -11,6 +14,8 @@ const {
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const net = require("net");
+const { spawn } = require("child_process");
 const archiver = require("archiver");
 
 let mainWindow = null;
@@ -18,6 +23,8 @@ let SQL = null;
 let db = null;
 let dbPath = null;
 let persistTimer = null;
+let nextChild = null;
+let nextPortInUse = null;
 
 const KEYTAR_SERVICE = "OpenMediaForge";
 
@@ -26,16 +33,36 @@ function getInitSqlJs() {
   return mod.default ?? mod;
 }
 
+function resolveSqlWasmPath() {
+  const candidates = [
+    path.join(__dirname, "..", "node_modules", "sql.js", "dist", "sql-wasm.wasm"),
+    path.join(
+      process.resourcesPath || "",
+      "app.asar.unpacked",
+      "node_modules",
+      "sql.js",
+      "dist",
+      "sql-wasm.wasm",
+    ),
+    path.join(
+      app.getAppPath(),
+      "node_modules",
+      "sql.js",
+      "dist",
+      "sql-wasm.wasm",
+    ),
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  throw new Error(
+    "sql.js wasm not found (expected under node_modules or app.asar.unpacked).",
+  );
+}
+
 async function initDatabase() {
   const initSqlJs = getInitSqlJs();
-  const wasmPath = path.join(
-    __dirname,
-    "..",
-    "node_modules",
-    "sql.js",
-    "dist",
-    "sql-wasm.wasm",
-  );
+  const wasmPath = resolveSqlWasmPath();
   SQL = await initSqlJs({
     locateFile: () => wasmPath,
   });
@@ -118,7 +145,147 @@ function loadKeytar() {
   }
 }
 
+function usesNextDevServer() {
+  return !!(process.env.OMF_DEV_PORT || process.env.OMF_DEV_URL);
+}
+
+function getStandaloneRoot() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "omf-next");
+  }
+  return path.join(__dirname, "..", ".next", "standalone");
+}
+
+function stopNextChild() {
+  if (nextChild && !nextChild.killed) {
+    try {
+      nextChild.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
+  }
+  nextChild = null;
+  nextPortInUse = null;
+}
+
+function tryPort(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.unref();
+    srv.once("error", () => resolve(null));
+    srv.listen(port, "127.0.0.1", () => {
+      const addr = srv.address();
+      const p = typeof addr === "object" && addr ? addr.port : port;
+      srv.close(() => resolve(p));
+    });
+  });
+}
+
+async function pickNextPort() {
+  const preferred = parseInt(
+    process.env.OMF_INTERNAL_NEXT_PORT || "38479",
+    10,
+  );
+  const first = await tryPort(preferred);
+  if (first) return first;
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address();
+      const p = typeof addr === "object" && addr ? addr.port : 38479;
+      srv.close(() => resolve(p));
+    });
+  });
+}
+
+function waitForHttpOk(url, timeoutMs) {
+  const http = require("http");
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    function ping() {
+      const req = http.get(url, (res) => {
+        res.resume();
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 500) {
+          resolve(true);
+          return;
+        }
+        retry();
+      });
+      req.on("error", () => retry());
+      req.setTimeout(2000, () => {
+        req.destroy();
+        retry();
+      });
+    }
+    function retry() {
+      if (Date.now() - started > timeoutMs) {
+        reject(new Error(`Timeout waiting for Next server at ${url}`));
+        return;
+      }
+      setTimeout(ping, 120);
+    }
+    ping();
+  });
+}
+
+async function ensureEmbeddedNextServer() {
+  if (nextChild && nextPortInUse && !nextChild.killed) {
+    const base = `http://127.0.0.1:${nextPortInUse}`;
+    try {
+      await waitForHttpOk(`${base}/`, 2500);
+      return base;
+    } catch {
+      stopNextChild();
+    }
+  }
+  return startEmbeddedNextServer();
+}
+
+async function startEmbeddedNextServer() {
+  const root = getStandaloneRoot();
+  const serverJs = path.join(root, "server.js");
+  if (!fs.existsSync(serverJs)) {
+    throw new Error(
+      `Next standalone server missing at ${serverJs}. Run npm run build first.`,
+    );
+  }
+  const port = await pickNextPort();
+  nextPortInUse = port;
+  const env = {
+    ...process.env,
+    ELECTRON_RUN_AS_NODE: "1",
+    PORT: String(port),
+    HOSTNAME: "127.0.0.1",
+    NODE_ENV: "production",
+    OMF_ELECTRON_DESKTOP: "1",
+  };
+  nextChild = spawn(process.execPath, [serverJs], {
+    cwd: root,
+    env,
+    stdio: "ignore",
+  });
+  nextChild.on("exit", (code, signal) => {
+    if (code && code !== 0 && signal == null) {
+      console.error(`[omf] Next child exited with code ${code}`);
+    }
+  });
+  const base = `http://127.0.0.1:${port}`;
+  await waitForHttpOk(`${base}/`, 45_000);
+  return base;
+}
+
+async function resolveUiBaseUrl() {
+  if (!app.isPackaged && usesNextDevServer()) {
+    return process.env.OMF_DEV_URL ||
+      `http://127.0.0.1:${process.env.OMF_DEV_PORT || "3010"}`;
+  }
+  return ensureEmbeddedNextServer();
+}
+
 async function createWindow() {
+  const uiBase = await resolveUiBaseUrl();
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -131,9 +298,7 @@ async function createWindow() {
     },
   });
 
-  const devPort = process.env.OMF_DEV_PORT || "3010";
-  const devUrl = process.env.OMF_DEV_URL || `http://127.0.0.1:${devPort}`;
-  await mainWindow.loadURL(devUrl);
+  await mainWindow.loadURL(uiBase);
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -243,6 +408,17 @@ function registerIpc() {
     return { ok: true };
   });
 
+  ipcMain.handle("omf:write-text-file", (_e, absPath, utf8) => {
+    const ws = getWorkspaceRoot();
+    const target = safeResolveBase(absPath);
+    if (ws && !isInsideDir(ws, target)) {
+      throw new Error("Path must be inside workspace.");
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, utf8, "utf8");
+    return { ok: true };
+  });
+
   ipcMain.handle("omf:ensure-dir", (_e, absPath) => {
     const ws = getWorkspaceRoot();
     const dir = safeResolveBase(absPath);
@@ -297,12 +473,25 @@ function registerIpc() {
     if (!kt) return false;
     return kt.deletePassword(KEYTAR_SERVICE, account);
   });
+
+  ipcMain.handle("omf:runtime-info", () => ({
+    packaged: app.isPackaged,
+    nextDevServer: !app.isPackaged && usesNextDevServer(),
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    keytarModuleLoaded: !!loadKeytar(),
+    nextPort: nextPortInUse,
+  }));
 }
 
 app.whenReady().then(async () => {
   registerIpc();
   await initDatabase();
   await createWindow();
+});
+
+app.on("before-quit", () => {
+  stopNextChild();
 });
 
 app.on("window-all-closed", () => {

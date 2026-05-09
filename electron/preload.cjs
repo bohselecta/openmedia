@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("omfDesktop", {
     ipcRenderer.invoke("omf:copy-files-into-dir", files, dir),
   writeBufferFile: (absPath, base64) =>
     ipcRenderer.invoke("omf:write-buffer-file", absPath, base64),
+  writeTextFile: (absPath, utf8) =>
+    ipcRenderer.invoke("omf:write-text-file", absPath, utf8),
 
   exportZip: (entries, destAbsPath) =>
     ipcRenderer.invoke("omf:export-zip", entries, destAbsPath),
@@ -36,4 +38,6 @@ contextBridge.exposeInMainWorld("omfDesktop", {
   joinPath: (...parts) => ipcRenderer.invoke("omf:join-path", parts),
 
   defaultComfyBaseUrl: () => ipcRenderer.invoke("omf:default-comfy-base-url"),
+
+  getRuntimeInfo: () => ipcRenderer.invoke("omf:runtime-info"),
 });

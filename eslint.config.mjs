@@ -5,7 +5,7 @@ const nextCoreWebVitals = require("eslint-config-next/core-web-vitals");
 
 const eslintConfig = [
   {
-    ignores: ["node_modules/**", ".next/**", "out/**", "dist/**", "build/**"],
+    ignores: ["node_modules/**", ".next/**", "out/**", "dist/**", "build/**", "dist-electron/**"],
   },
   ...nextCoreWebVitals,
 ];

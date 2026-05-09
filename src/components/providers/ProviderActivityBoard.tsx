@@ -11,10 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useDesktopTrustSnapshot } from "@/lib/desktop/useDesktopTrustSnapshot";
 import { useProviderRunLogStore } from "@/lib/providers/providerRunLog";
 
 export function ProviderActivityBoard() {
   const entries = useProviderRunLogStore((s) => s.entries);
+  const trust = useDesktopTrustSnapshot();
 
   const sorted = useMemo(
     () => [...entries].sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
@@ -40,6 +42,17 @@ export function ProviderActivityBoard() {
           <Link href="/providers">Adapter catalog</Link>
         </Button>
       </div>
+
+      <Card className="mt-6 border-line bg-panel/80">
+        <CardHeader className="py-4">
+          <CardTitle className="text-sm font-medium">Runtime snapshot</CardTitle>
+          <CardDescription className="text-xs leading-relaxed">
+            Mode: {trust.appMode} · {trust.storageMode} · {trust.keyMode} ·
+            workspace: {trust.workspaceFolder.length > 48 ? `${trust.workspaceFolder.slice(0, 48)}…` : trust.workspaceFolder} · packet:{" "}
+            {trust.packetExport}
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
       <Card className="mt-10 border-line bg-panel-elevated/75">
         <CardHeader>

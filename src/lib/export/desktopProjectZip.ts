@@ -4,17 +4,19 @@ import type { AssetMapEntry } from "@/lib/assetMap/assetMapTypes";
 import type { Asset } from "@/lib/assets/assetTypes";
 import type { GenerationJob } from "@/lib/jobs/jobTypes";
 import type { CredentialRef } from "@/lib/providers/types";
+import type { ProviderConfig } from "@/lib/providers/types";
+import type { ProviderRunLogEntry } from "@/lib/providers/providerRunLog";
 import {
   buildProjectPacket,
   projectPacketToJson,
 } from "@/lib/export/projectPacket";
+import {
+  packetJsonLikelyContainsSecretMaterial,
+  parseProjectPacketJson,
+} from "@/lib/export/projectPacketSchema";
 import type { Project } from "@/lib/projects/projectTypes";
 import type { GenerationReceipt } from "@/lib/receipts/receiptTypes";
 import type { SavedPrompt, StoryboardShot } from "@/lib/workspace/workspaceTypes";
-
-function utf8ToBase64Json(json: string): string {
-  return btoa(unescape(encodeURIComponent(json)));
-}
 
 function fileUriToAbsolute(uri: string): string | null {
   if (uri.startsWith("file://")) {
@@ -43,6 +45,8 @@ export async function exportDesktopProjectZip(params: {
   prompts: SavedPrompt[];
   credentials: CredentialRef[];
   appVersion?: string;
+  providerRunLog?: ProviderRunLogEntry[];
+  providerConfigs?: ProviderConfig[];
 }): Promise<{ ok: boolean; zipPath?: string; error?: string }> {
   const d = typeof window !== "undefined" ? window.omfDesktop : undefined;
   if (!d?.exportZip || !params.project.diskFolderName) {
@@ -72,10 +76,20 @@ export async function exportDesktopProjectZip(params: {
     prompts: params.prompts,
     credentials: params.credentials,
     appVersion: params.appVersion,
+    providerRunLog: params.providerRunLog,
+    providerConfigs: params.providerConfigs,
   });
   const json = projectPacketToJson(packet);
+  const leak = packetJsonLikelyContainsSecretMaterial(json);
+  if (leak) {
+    return { ok: false, error: `Refusing ZIP: packet audit failed (${leak}).` };
+  }
+  const parsed = parseProjectPacketJson(json);
+  if (!parsed.ok) {
+    return { ok: false, error: `Packet schema validation failed: ${parsed.error}` };
+  }
   const packetPath = await d.joinPath(exportDir, `packet-${stamp}.json`);
-  await d.writeBufferFile(packetPath, utf8ToBase64Json(json));
+  await d.writeTextFile(packetPath, json);
 
   const entries: Array<{ absPath: string; arcName: string }> = [
     { absPath: packetPath, arcName: `packet-${stamp}.json` },

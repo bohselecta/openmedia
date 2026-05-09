@@ -90,6 +90,7 @@ export function inferRunLane(params: {
   endpointHost?: string;
   credentialRef?: string;
 }): ProviderRunLane {
+  if (params.providerId === "replicate") return "byok-remote";
   if (params.providerId === "mock") return "mock";
   if (params.providerId === "comfyui-local") return "local";
   const h = (params.endpointHost ?? "").toLowerCase();

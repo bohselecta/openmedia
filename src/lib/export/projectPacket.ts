@@ -4,9 +4,20 @@ import type { GenerationJob } from "@/lib/jobs/jobTypes";
 import type { Project } from "@/lib/projects/projectTypes";
 import type { GenerationReceipt } from "@/lib/receipts/receiptTypes";
 import type { CredentialRef } from "@/lib/providers/types";
+import type { ProviderRunLogEntry } from "@/lib/providers/providerRunLog";
+import type { ProviderConfig } from "@/lib/providers/types";
 import type { SavedPrompt, StoryboardShot } from "@/lib/workspace/workspaceTypes";
+import {
+  redactJobForExport,
+  redactProviderConfigsForExport,
+  summarizeProviderActivityForProject,
+  type RedactedProviderConfigSnapshot,
+} from "@/lib/export/packetRedaction";
+
+export const PROJECT_PACKET_SCHEMA_VERSION = "0.5.1";
 
 export type ProjectPacket = {
+  packetSchemaVersion: string;
   appName: string;
   appVersion: string;
   exportedAt: string;
@@ -33,6 +44,8 @@ export type ProjectPacket = {
       | "lastUsedAt"
     >
   >;
+  providerActivitySummary: ProviderRunLogEntry[];
+  redactedProviderConfigs: RedactedProviderConfigSnapshot[];
 };
 
 export function buildProjectPacket(params: {
@@ -45,10 +58,14 @@ export function buildProjectPacket(params: {
   prompts: SavedPrompt[];
   credentials: CredentialRef[];
   appVersion?: string;
+  providerRunLog?: ProviderRunLogEntry[];
+  providerConfigs?: ProviderConfig[];
 }): ProjectPacket {
   const projectAssets = params.assets.filter((a) => a.projectId === params.project.id);
   const projectMap = params.assetMap.filter((e) => e.projectId === params.project.id);
-  const jobs = params.jobs.filter((j) => j.projectId === params.project.id);
+  const jobs = params.jobs
+    .filter((j) => j.projectId === params.project.id)
+    .map((j) => redactJobForExport(j));
   const receipts = params.receipts.filter((r) => r.projectId === params.project.id);
   const providerSet = new Set<string>();
   for (const j of jobs) providerSet.add(j.providerId);
@@ -71,12 +88,22 @@ export function buildProjectPacket(params: {
     referenceSelectionsByJobId[j.id] = j.referenceSelections ?? [];
   }
 
+  const activity = summarizeProviderActivityForProject(
+    params.providerRunLog ?? [],
+    params.project.id,
+  );
+
+  const redactedProviderConfigs = redactProviderConfigsForExport(
+    params.providerConfigs ?? [],
+  );
+
   return {
+    packetSchemaVersion: PROJECT_PACKET_SCHEMA_VERSION,
     appName: "OpenMediaForge",
     appVersion: params.appVersion ?? "0.1.0",
     exportedAt: new Date().toISOString(),
     warning:
-      "Media binaries are not embedded. This JSON packet carries metadata and lineage only until optional ZIP export ships.",
+      "Portable packet: jobs and provider configs are redacted. Media may be bundled separately in desktop ZIP exports.",
     project: params.project,
     assets: projectAssets,
     assetMap: projectMap,
@@ -87,6 +114,8 @@ export function buildProjectPacket(params: {
     promptNotes: params.prompts,
     providersUsed: [...providerSet],
     credentialRefsMetadata,
+    providerActivitySummary: activity,
+    redactedProviderConfigs,
   };
 }
 

@@ -12,6 +12,9 @@ node_modules/
 .next/
 out/
 
+# Electron distributables
+dist-electron/
+
 # Env / logs
 .env*.local
 npm-debug.log*

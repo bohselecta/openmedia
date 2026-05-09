@@ -70,6 +70,21 @@
         "type": "object"
       }
     },
+    "packetSchemaVersion": {
+      "type": "string"
+    },
+    "providerActivitySummary": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "redactedProviderConfigs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
     "warning": {
       "type": "string"
     },

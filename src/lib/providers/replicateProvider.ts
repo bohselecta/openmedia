@@ -109,9 +109,20 @@ export const replicateProvider: GenerationProvider = {
       urls?: { get?: string };
     };
     if (!res.ok) {
-      throw new Error(
-        json.detail ?? json.error ?? `Replicate HTTP ${res.status}`,
-      );
+      const detail = json.detail ?? json.error;
+      const msg =
+        res.status === 401 ?
+          "Invalid or expired Replicate token (HTTP 401)."
+        : res.status === 402 || res.status === 403 ?
+          "Replicate rejected this request — check billing, permissions, or model access."
+        : res.status === 404 ?
+          "Replicate model version not found — check replicateVersion."
+        : res.status >= 500 ?
+          "Replicate service error — try again later."
+        : (typeof detail === "string" && detail.trim() ?
+            `Replicate error (HTTP ${res.status}): ${detail}`
+          : `Replicate HTTP ${res.status}`);
+      throw new Error(msg);
     }
     const getUrl = json.urls?.get;
     if (!getUrl) {
@@ -175,7 +186,15 @@ export const replicateProvider: GenerationProvider = {
     };
     if (!res.ok) {
       row.phase = "failed";
-      row.error = body.error ?? `HTTP ${res.status}`;
+      const detail = body.error ?? `HTTP ${res.status}`;
+      row.error =
+        res.status === 401 ?
+          "Invalid or expired Replicate token while polling (HTTP 401)."
+        : res.status === 404 ?
+          "Replicate prediction not found — it may have expired."
+        : typeof detail === "string" ?
+          `Replicate poll failed (HTTP ${res.status}): ${detail}`
+        : `Replicate poll HTTP ${res.status}`;
       repRuntime.set(jobId, row);
       return {
         providerJobId: jobId,
@@ -205,7 +224,7 @@ export const replicateProvider: GenerationProvider = {
       row.phase = "done";
       row.outputs = assets.length ? assets : undefined;
       row.error =
-        assets.length ? undefined : ("No image URL in Replicate output." as string);
+        assets.length ? undefined : ("No image URL in Replicate output — model may return video, text, or an unsupported shape." as string);
       if (!assets.length) row.phase = "failed";
       repRuntime.set(jobId, row);
       return {

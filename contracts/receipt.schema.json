@@ -6,13 +6,16 @@
     "id",
     "jobId",
     "providerId",
+    "manifestId",
     "modelId",
     "task",
     "settings",
     "inputAssetIds",
     "outputAssetIds",
     "localOrRemote",
-    "createdAt"
+    "createdAt",
+    "ledgerStatus",
+    "redactionVersion"
   ],
   "properties": {
     "id": {
@@ -28,6 +31,9 @@
       "type": "string"
     },
     "credentialRef": {
+      "type": "string"
+    },
+    "manifestId": {
       "type": "string"
     },
     "modelId": {
@@ -81,10 +87,13 @@
       }
     },
     "estimatedCost": {
-      "type": "number"
+      "type": ["number", "null"]
     },
     "actualCost": {
-      "type": "number"
+      "type": ["number", "null"]
+    },
+    "providerReportedCostUsd": {
+      "type": ["number", "null"]
     },
     "localOrRemote": {
       "enum": [
@@ -104,6 +113,18 @@
       "type": "string"
     },
     "createdAt": {
+      "type": "string"
+    },
+    "completedAt": {
+      "type": "string"
+    },
+    "ledgerStatus": {
+      "enum": ["succeeded", "failed", "canceled"]
+    },
+    "redactionVersion": {
+      "type": "string"
+    },
+    "failureSummary": {
       "type": "string"
     }
   },

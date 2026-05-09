@@ -5,26 +5,20 @@ _Generated for internal orientation. Update when milestones ship._
 ## Snapshot (as of this document)
 
 | Item | Value |
-|------|--------|
-| **Package version** | `0.5.0-alpha` ([package.json](package.json)) |
-| **Git tags** | `v0.4.0-alpha` (Phase 4 lock), `v0.5.0-alpha` (desktop + depth pass) |
+|------|-------|
+| **Package version** | `0.5.2-alpha` ([package.json](package.json)) |
+| **Git tags** | `v0.4.0-alpha`, `v0.5.0-alpha`, `v0.5.1-alpha`; tag **`v0.5.2-alpha`** after this drop |
 | **Stack** | Next.js 16 App Router, React 19, TypeScript, Tailwind, Zustand, TanStack Query, Zod, localForage / desktop SQLite KV |
-| **Quality gates** | `npm run typecheck`, `lint`, `build`, `verify` — all expected to pass on main |
+| **Quality gates** | `npm run typecheck`, `lint`, `build`, `verify` — run on each release |
 
 ## Where we are (product arc)
 
 - **Web MVP** — Creator-grade shell, projects, assets, Image Studio, queue, receipts, providers, keys (KeyRail), mock provider end-to-end.
-- **Phase 4 — Provider foundations** — Generic HTTP (BYO endpoint), ComfyUI local adapter with workflow templates, provider activity log, dynamic manifests; **no** single-vendor gateway; jobs/receipts use credential refs only.
-- **Phase 5 / v0.5 — Desktop local trust (in progress / first slice shipped)** — **Electron** wraps the same Next UI; **SQLite-backed KV** (sql.js in main process) mirrors IndexedDB stores when `window.omfDesktop` is present; **OS keychain** via keytar for `desktop-keychain` KeyRail mode; **workspace folder** + **project disk folders**; **import media**, **reveal file assets**, **ZIP project packet** export on desktop; Comfy outputs can mirror to project disk; **Replicate BYOK** adapter for first paid-style cloud path.
-- **Roadmap alignment** — See [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md) (includes KeyRail spinout gate). Hosted OpenMediaForge compute gateway is explicitly out of scope.
-
-## What was built recently (recent commits)
-
-1. **`Phase 4: provider foundations with Generic HTTP and ComfyUI`** (`4dc04b2`) — Tagged **`v0.4.0-alpha`**.
-2. **`Phase 5: Electron desktop shell, KeyRail keychain, SQLite KV, Comfy/Replicate depth`** (`0017678`) — Large delivery: `electron/`, desktop IPC, storage bridge, asset mirror, replicate provider, UI hooks. Tagged **`v0.5.0-alpha`**.
-3. **`fix(desktop): disable Electron sandbox on Linux; allow 127.0.0.1 dev HMR for Electron`** (`d339882`) — `ELECTRON_DISABLE_SANDBOX=1` in npm scripts; `allowedDevOrigins: ["127.0.0.1"]` in [next.config.ts](next.config.ts) for Electron loading dev server.
-
-Follow-on fixes in session work (media import / recipe export / port conflict guidance) may be additional commits; see `git log`.
+- **Phase 4 — Provider foundations** — Generic HTTP, ComfyUI local, provider activity, dynamic manifests; jobs/receipts use credential refs only.
+- **Phase 5 / v0.5 — Desktop local trust** — Electron, SQLite KV, keychain mode, workspace/project folders, import/reveal, ZIP export.
+- **v0.5.1-alpha — Desktop Trust Pass + Real Provider Loop** — Failure receipts, packet redaction + Zod, activity/config in export, trust diagnostics v1. See [docs/DESKTOP_TRUST_PASS.md](docs/DESKTOP_TRUST_PASS.md).
+- **v0.5.2-alpha — Installable Linux artifact** — `electron-builder` AppImage, embedded Next standalone (`ELECTRON_RUN_AS_NODE`), extended Local trust check, packaging + smoke docs. See [docs/DESKTOP_PACKAGING.md](docs/DESKTOP_PACKAGING.md), [docs/DESKTOP_SMOKE_CHECKLIST.md](docs/DESKTOP_SMOKE_CHECKLIST.md).
+- **Roadmap** — [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md) (KeyRail remains **inside** OpenMediaForge until spinout gates).
 
 ## How to run
 
@@ -32,10 +26,12 @@ Follow-on fixes in session work (media import / recipe export / port conflict gu
 |------|---------|
 | Web dev | `npm run dev` |
 | Desktop dev (Next on **3010** + Electron) | `npm run desktop:dev` |
-| Production build | `npm run build` then `npm run start` |
+| Production build (always standalone layout) | `npm run build` |
+| Desktop against local standalone | `npm run build && npm run desktop` |
+| Linux AppImage | `npm run desktop:pack` |
 | Verification | `npm run verify` |
 
-**Linux desktop:** If port **3010** is busy (`EADDRINUSE`), stop the other Next/Electron process first. Only one `desktop:dev` at a time.
+**Linux desktop:** If port **3010** is busy during dev, stop the other process first. Packaged Next uses **38479** by default (see [DESKTOP_PACKAGING.md](docs/DESKTOP_PACKAGING.md)).
 
 ## Key paths (implementation)
 
@@ -43,30 +39,34 @@ Follow-on fixes in session work (media import / recipe export / port conflict gu
 |------|----------|
 | Desktop shell | [electron/main.cjs](electron/main.cjs), [electron/preload.cjs](electron/preload.cjs) |
 | Desktop types | [src/types/omf-desktop.d.ts](src/types/omf-desktop.d.ts) |
-| Storage (web vs desktop KV) | [src/lib/storage/indexedDbStorage.ts](src/lib/storage/indexedDbStorage.ts) |
-| KeyRail / vault | [src/lib/keyrail/](src/lib/keyrail/), [src/lib/keyrail/vaultSecrets.ts](src/lib/keyrail/vaultSecrets.ts) |
-| Providers | [src/lib/providers/](src/lib/providers/) — mock, generic HTTP, Comfy, **replicate**, placeholders |
-| Verify scripts | [scripts/verify_build.py](scripts/verify_build.py), [scripts/verify_runtime.ts](scripts/verify_runtime.ts) |
+| Storage | [src/lib/storage/indexedDbStorage.ts](src/lib/storage/indexedDbStorage.ts), [src/lib/storage/storage.ts](src/lib/storage/storage.ts) |
+| Trust diagnostics | [src/lib/desktop/trustDiagnostics.ts](src/lib/desktop/trustDiagnostics.ts), [useDesktopTrustSnapshot.ts](src/lib/desktop/useDesktopTrustSnapshot.ts) |
+| Standalone asset sync | [scripts/copy-standalone-assets.mjs](scripts/copy-standalone-assets.mjs) |
+| Packet + redaction | [src/lib/export/projectPacket.ts](src/lib/export/projectPacket.ts), [packetRedaction.ts](src/lib/export/packetRedaction.ts), [projectPacketSchema.ts](src/lib/export/projectPacketSchema.ts) |
+| Receipts | [src/lib/jobs/receipt.ts](src/lib/jobs/receipt.ts), [contracts/data-model.contract.ts](contracts/data-model.contract.ts) |
+| Providers | [src/lib/providers/](src/lib/providers/) |
+| Recipe import | [src/lib/recipe/importGenericHttpRecipe.ts](src/lib/recipe/importGenericHttpRecipe.ts) |
+| Verify | [scripts/verify_build.py](scripts/verify_build.py), [scripts/verify_runtime.ts](scripts/verify_runtime.ts) |
 
 ## Done vs next (honest)
 
-**In place**
+**Solid now**
 
-- Mock + Generic HTTP + ComfyUI foundation + run log.
-- Electron + SQLite KV + keychain-backed secrets + workspace/project folders + desktop import/reveal/ZIP export.
-- Comfy template UI extensions (mapper fields, desktop default base URL hint), optional WS helper module, output mirroring hook.
-- Generic HTTP dry-run preview + redacted recipe JSON export per saved config.
-- Replicate BYOK adapter + manifest (`replicate-image-byok-v1`); tickets/secrets via KeyRail like other BYOK lanes.
+- Linux **AppImage** path via `npm run desktop:pack` (embedded Next standalone, no dev server).
+- Full creator loop with mock + real adapters; desktop persistence via SQLite KV.
+- Export packet redaction, UTF-8 packet in ZIP, verifier checks on packet JSON.
+- Local trust check panel (Settings + Provider Activity snapshot).
 
-**Still thin / follow-ups**
+**Still thin / next milestones**
 
-- Tauri remains a later option; Electron is the chosen bridge for now.
-- Standalone Next packaging for production Electron (`OMF_STANDALONE=1` build) is scaffolded in config but not fully documented as a one-click artifact.
-- Recipe **import** from JSON file is manual vs one-click UI.
-- Workflow DAG across providers, additional cloud adapters, and KeyRail product spinout stay roadmap-only until gates in [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md).
+- **`.deb` / signing / smaller bundle`** after AppImage feedback.
+- Richer Comfy template marketplace (v0.5.3+).
+- KeyRail grant layer v1 (v0.6.0) — still not a separate product.
 
 ## References
 
+- Trust pass: [docs/DESKTOP_TRUST_PASS.md](docs/DESKTOP_TRUST_PASS.md)
+- Packaging: [docs/DESKTOP_PACKAGING.md](docs/DESKTOP_PACKAGING.md)
+- Smoke checklist: [docs/DESKTOP_SMOKE_CHECKLIST.md](docs/DESKTOP_SMOKE_CHECKLIST.md)
 - Build rules: [AGENTS.md](AGENTS.md), [BUILD_DIRECTIVE.txt](BUILD_DIRECTIVE.txt)
 - Contracts: [contracts/](contracts/)
-- Product/docs: [docs/](docs/)

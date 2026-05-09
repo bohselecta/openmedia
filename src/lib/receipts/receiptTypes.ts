@@ -1,1 +1,4 @@
-export type { GenerationReceipt } from "@contracts/data-model.contract";
+export type {
+  GenerationReceipt,
+  ReceiptLedgerStatus,
+} from "@contracts/data-model.contract";

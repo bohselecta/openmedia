@@ -171,15 +171,30 @@ export function ReceiptsBoard() {
               <CardHeader className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="cyan">{r.providerId}</Badge>
-                  <Badge variant="lime">{r.modelId}</Badge>
+                  <Badge variant="lime">{r.manifestId}</Badge>
+                  <Badge variant="muted">{r.modelId}</Badge>
                   <Badge>{r.task}</Badge>
+                  <Badge
+                    variant={
+                      r.ledgerStatus === "succeeded" ? "lime"
+                      : r.ledgerStatus === "canceled" ? "muted"
+                      : "muted"
+                    }
+                  >
+                    {r.ledgerStatus}
+                  </Badge>
                   <Badge variant="muted">{r.localOrRemote}</Badge>
                 </div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <CardTitle className="text-xl font-mono">{r.id}</CardTitle>
-                    <CardDescription className="mt-2 line-clamp-2">
-                      {r.prompt}
+                    <CardDescription className="mt-2 space-y-1">
+                      <div className="line-clamp-2">{r.prompt}</div>
+                      {r.failureSummary && (
+                        <div className="text-danger text-xs font-normal">
+                          {r.failureSummary}
+                        </div>
+                      )}
                     </CardDescription>
                   </div>
                   <div className="text-xs text-ink-muted">
@@ -248,20 +263,64 @@ function FilterSelect({
 function ReceiptDetail({ receipt }: { receipt: GenerationReceipt }) {
   return (
     <div className="space-y-4 text-sm text-ink-muted">
+      <div className="rounded-xl border border-line bg-panel p-3 text-xs text-ink">
+        <div className="font-semibold text-ink-faint uppercase tracking-wide text-[11px]">
+          Summary
+        </div>
+        <p className="mt-2 leading-relaxed">
+          Provider <span className="font-mono text-accent-cyan">{receipt.providerId}</span>{" "}
+          ran manifest{" "}
+          <span className="font-mono text-accent-lime">{receipt.manifestId}</span>
+          {receipt.credentialRef ?
+            <>
+              {" "}
+              using credential ref{" "}
+              <span className="font-mono">{receipt.credentialRef}</span>
+            </>
+          : ""}
+          . Inputs{" "}
+          {receipt.inputAssetIds.length ?
+            `(${receipt.inputAssetIds.length} asset id(s))`
+          : "(none)"}{" "}
+          produced outputs{" "}
+          {receipt.outputAssetIds.length ?
+            `(${receipt.outputAssetIds.length} asset id(s))`
+          : "(none)"}
+          . Ledger status{" "}
+          <span className="font-semibold text-ink">{receipt.ledgerStatus}</span>
+          {receipt.redactionVersion ?
+            <> · redaction v{receipt.redactionVersion}</>
+          : ""}
+          .
+        </p>
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Prompt" value={receipt.prompt ?? "—"} />
-        <Field label="Model" value={receipt.modelId} />
+        <Field label="Job id" value={receipt.jobId} />
+        <Field label="Manifest id" value={receipt.manifestId} />
+        <Field label="Model id" value={receipt.modelId} />
         <Field label="Provider" value={receipt.providerId} />
         <Field label="Credential ref" value={receipt.credentialRef ?? "—"} />
         <Field label="Task" value={receipt.task} />
+        <Field label="Ledger status" value={receipt.ledgerStatus} />
         <Field label="Local / remote" value={receipt.localOrRemote} />
         <Field
+          label="Provider-reported cost (USD)"
+          value={
+            receipt.providerReportedCostUsd == null ?
+              "—"
+            : String(receipt.providerReportedCostUsd)
+          }
+        />
+        <Field
           label="Estimated cost"
-          value={String(receipt.estimatedCost ?? "—")}
+          value={
+            receipt.estimatedCost == null ? "—" : String(receipt.estimatedCost)
+          }
         />
         <Field
           label="Actual cost"
-          value={String(receipt.actualCost ?? "—")}
+          value={receipt.actualCost == null ? "—" : String(receipt.actualCost)}
         />
         <Field
           label="Network destinations"
@@ -270,6 +329,14 @@ function ReceiptDetail({ receipt }: { receipt: GenerationReceipt }) {
         <Field
           label="Created"
           value={new Date(receipt.createdAt).toLocaleString()}
+        />
+        <Field
+          label="Completed"
+          value={
+            receipt.completedAt ?
+              new Date(receipt.completedAt).toLocaleString()
+            : "—"
+          }
         />
       </div>
       <Separator />

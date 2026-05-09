@@ -5,7 +5,11 @@ import { suggestedStableHandle } from "@/lib/assetMap/handles";
 import { useAssetStore } from "@/lib/assets/assetStore";
 import { credentialAllowsTask, omfKeyRail } from "@/lib/keyrail/keyrail";
 import { useCredentialStore } from "@/lib/keyrail/credentialStore";
-import { writeReceiptFromJob } from "@/lib/jobs/receipt";
+import {
+  failureReceiptIdForJob,
+  writeFailureReceiptFromJob,
+  writeReceiptFromJob,
+} from "@/lib/jobs/receipt";
 import type { GenerationJob } from "@/lib/jobs/jobTypes";
 import { useJobStore } from "@/lib/jobs/jobStore";
 import { getManifestById } from "@/lib/models/sampleManifests";
@@ -94,6 +98,7 @@ export async function runJob(jobId: string): Promise<void> {
       error: "Unknown provider.",
       updatedAt: new Date().toISOString(),
     });
+    persistFailureReceipt(jobId);
     return;
   }
 
@@ -114,6 +119,7 @@ export async function runJob(jobId: string): Promise<void> {
       error: "Credential reference not found in KeyRail.",
       updatedAt: new Date().toISOString(),
     });
+    persistFailureReceipt(jobId);
     return;
   }
   if (effectiveCredentialRef && cred && !credentialAllowsTask(cred, job.task)) {
@@ -122,6 +128,7 @@ export async function runJob(jobId: string): Promise<void> {
       error: "Credential scope does not allow this task.",
       updatedAt: new Date().toISOString(),
     });
+    persistFailureReceipt(jobId);
     return;
   }
 
@@ -154,6 +161,7 @@ export async function runJob(jobId: string): Promise<void> {
       error: validation.errors.join(" · "),
       updatedAt: new Date().toISOString(),
     });
+    persistFailureReceipt(jobId);
     return;
   }
 
@@ -255,6 +263,7 @@ export async function runJob(jobId: string): Promise<void> {
       updatedAt: new Date().toISOString(),
       networkDestinations: ticket.networkDestinations,
     });
+    persistFailureReceipt(jobId);
     return;
   }
 
@@ -308,6 +317,7 @@ export async function runJob(jobId: string): Promise<void> {
       updatedAt: new Date().toISOString(),
       networkDestinations: ticket.networkDestinations,
     });
+    persistFailureReceipt(jobId);
     return;
   }
 
@@ -340,7 +350,7 @@ export async function runJob(jobId: string): Promise<void> {
   }
 
   if (
-    job.providerId === "comfyui-local" &&
+    (job.providerId === "comfyui-local" || job.providerId === "replicate") &&
     typeof window !== "undefined" &&
     window.omfDesktop?.enabled
   ) {
@@ -379,6 +389,7 @@ export async function runJob(jobId: string): Promise<void> {
 
   const completed = useJobStore.getState().jobs.find((j) => j.id === jobId)!;
   const manifest = getManifestById(job.modelId);
+  useReceiptStore.getState().removeReceiptById(failureReceiptIdForJob(jobId));
   const receipt = writeReceiptFromJob(completed, manifest?.version);
   useReceiptStore.getState().upsertReceipt(receipt);
   if (completed.projectId) {
@@ -390,6 +401,15 @@ function patchJob(jobId: string, patch: Partial<GenerationJob>) {
   const prev = useJobStore.getState().jobs.find((j) => j.id === jobId);
   if (!prev) return;
   useJobStore.getState().upsertJob({ ...prev, ...patch });
+}
+
+function persistFailureReceipt(jobId: string) {
+  const j = useJobStore.getState().jobs.find((x) => x.id === jobId);
+  if (!j) return;
+  const manifest = getManifestById(j.modelId);
+  useReceiptStore
+    .getState()
+    .upsertReceipt(writeFailureReceiptFromJob(j, manifest?.version));
 }
 
 function ensureAssetMapOutputEntry(asset: Asset, projectId: string) {

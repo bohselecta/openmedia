@@ -25,6 +25,8 @@ export interface OmfDesktopBridge {
     dir: string,
   ): Promise<{ copied: string[] }>;
   writeBufferFile(absPath: string, base64: string): Promise<{ ok: boolean }>;
+  /** UTF-8 text (preferred for JSON packets). */
+  writeTextFile(absPath: string, utf8: string): Promise<{ ok: boolean }>;
 
   exportZip(
     entries: OmfZipEntry[],
@@ -39,6 +41,16 @@ export interface OmfDesktopBridge {
   joinPath(...parts: string[]): Promise<string>;
 
   defaultComfyBaseUrl(): Promise<string>;
+
+  /** Main-process runtime (packaging, version, keytar load). */
+  getRuntimeInfo(): Promise<{
+    packaged: boolean;
+    nextDevServer: boolean;
+    appVersion: string;
+    platform: string;
+    keytarModuleLoaded: boolean;
+    nextPort: number | null;
+  }>;
 }
 
 declare global {

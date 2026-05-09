@@ -43,6 +43,8 @@ import type { ReferenceSelection } from "@/lib/providers/types";
 import { formatProjectKind } from "@/lib/projects/projectKindLabels";
 import type { Project } from "@/lib/projects/projectTypes";
 import { computeProjectStats } from "@/lib/projects/projectStats";
+import { useProviderConfigStore } from "@/lib/providers/providerConfigStore";
+import { useProviderRunLogStore } from "@/lib/providers/providerRunLog";
 import { useReceiptStore } from "@/lib/receipts/receiptStore";
 import { validateReferenceSelections } from "@/lib/validation/referenceValidation";
 import { useWorkspaceStore } from "@/lib/workspace/workspaceStore";
@@ -189,6 +191,8 @@ export function ProjectWorkspace({ project }: { project: Project }) {
       shots,
       prompts,
       credentials,
+      providerRunLog: useProviderRunLogStore.getState().entries,
+      providerConfigs: useProviderConfigStore.getState().configs,
     });
     const blob = new Blob([projectPacketToJson(packet)], {
       type: "application/json",
@@ -231,6 +235,8 @@ export function ProjectWorkspace({ project }: { project: Project }) {
       prompts,
       credentials,
       appVersion: packageJson.version,
+      providerRunLog: useProviderRunLogStore.getState().entries,
+      providerConfigs: useProviderConfigStore.getState().configs,
     });
     setDesktopNote(
       r.ok ? `ZIP saved: ${r.zipPath}` : r.error ?? "ZIP export failed.",

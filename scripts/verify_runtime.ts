@@ -7,7 +7,11 @@ import { submitStudioGeneration } from "../src/lib/jobs/jobRunner";
 import { writeReceiptFromJob } from "../src/lib/jobs/receipt";
 import { useJobStore } from "../src/lib/jobs/jobStore";
 import { mintExecutionTicket } from "../src/lib/keyrail/executionTickets";
-import { buildProjectPacket } from "../src/lib/export/projectPacket";
+import { buildProjectPacket, projectPacketToJson } from "../src/lib/export/projectPacket";
+import {
+  packetJsonLikelyContainsSecretMaterial,
+  parseProjectPacketJson,
+} from "../src/lib/export/projectPacketSchema";
 import { getManifestById, SAMPLE_MANIFESTS } from "../src/lib/models/sampleManifests";
 import type { Project } from "../src/lib/projects/projectTypes";
 import {
@@ -24,6 +28,9 @@ import { useProviderRunLogStore } from "../src/lib/providers/providerRunLog";
 import { validateGenericHttpConfig } from "../src/lib/providers/genericHttpProvider";
 import { testComfyProviderConfig } from "../src/lib/providers/comfyConfigTest";
 import { comfyProvider } from "../src/lib/providers/comfyProvider";
+import {
+  parseGenericHttpRecipeJson,
+} from "../src/lib/recipe/importGenericHttpRecipe";
 
 async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
@@ -106,6 +113,9 @@ async function main() {
   const receipt = writeReceiptFromJob(job, "1.0.0");
   assert.equal(receipt.jobId, job.id);
   assert.equal(receipt.providerId, "mock");
+  assert.equal(receipt.manifestId, job.modelId);
+  assert.equal(receipt.ledgerStatus, "succeeded");
+  assert.equal(receipt.redactionVersion, "1");
   assert.ok(receipt.prompt?.includes("verify-runtime"));
   assert.equal(receipt.referenceSelections?.length, 1);
   assert.equal(receipt.referenceSelections?.[0]?.stableHandle, "@VerifyRef");
@@ -164,9 +174,38 @@ async function main() {
     shots: [],
     prompts: [],
     credentials: [],
+    providerRunLog: [],
+    providerConfigs: [],
   });
-  assert.ok(pkt.warning.includes("not embedded"));
+  assert.equal(pkt.packetSchemaVersion, "0.5.1");
+  assert.ok(pkt.warning.toLowerCase().includes("redact"));
   assert.equal(pkt.appName, "OpenMediaForge");
+  const json = projectPacketToJson(pkt);
+  const leak = packetJsonLikelyContainsSecretMaterial(json);
+  assert.equal(leak, null);
+  const parsedPkt = parseProjectPacketJson(json);
+  assert.ok(parsedPkt.ok);
+
+  const sampleRecipe = {
+    exportKind: "openmediaforge-generic-http-recipe" as const,
+    version: 1,
+    label: "Imported verify recipe",
+    providerId: "generic-http" as const,
+    kind: "remote" as const,
+    baseUrl: "http://127.0.0.1:9999/echo",
+    authMode: "none" as const,
+    enabled: false,
+    genericHttp: {
+      method: "POST" as const,
+      task: "text-to-image",
+      requestTemplateJson: '{"prompt":"{{prompt}}"}',
+      responseMapping: { outputUrlPath: "u" },
+      polling: { mode: "none" as const, intervalMs: 1000, maxAttempts: 1 },
+      outputType: "imageUrl" as const,
+    },
+  };
+  const pr = parseGenericHttpRecipeJson(JSON.stringify(sampleRecipe));
+  assert.ok(pr.ok);
 
   await useProviderConfigStore.getState().hydrate();
   await useProviderRunLogStore.getState().hydrate();

@@ -27,6 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { DesktopWorkstationCard } from "@/components/settings/DesktopWorkstationCard";
+import { TrustDiagnosticsCard } from "@/components/settings/TrustDiagnosticsCard";
 import { hardResetLocalApp } from "@/lib/app/resetLocalApp";
 
 export function SettingsClient({
@@ -163,6 +164,8 @@ export function SettingsClient({
             </Dialog>
           </CardContent>
         </Card>
+
+        <TrustDiagnosticsCard />
 
         <DesktopWorkstationCard />
       </div>
