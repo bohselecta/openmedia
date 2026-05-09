@@ -12,8 +12,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "verify": "python3 scripts/verify_build.py && npx tsx scripts/verify_runtime.ts",
-    "desktop:dev": "cross-env OMF_DEV_PORT=3010 concurrently -k \"next dev -p 3010\" \"wait-on tcp:3010 && electron electron/main.cjs\"",
-    "desktop": "electron electron/main.cjs"
+    "desktop:dev": "cross-env OMF_DEV_PORT=3010 ELECTRON_DISABLE_SANDBOX=1 concurrently -k \"next dev -p 3010\" \"wait-on tcp:3010 && electron electron/main.cjs\"",
+    "desktop": "cross-env ELECTRON_DISABLE_SANDBOX=1 electron electron/main.cjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.15",
